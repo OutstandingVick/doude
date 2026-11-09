@@ -1,0 +1,118 @@
+{
+  "detected": true,
+  "pipeline_id": "BYS-TL-01",
+  "baseline": {
+    "q_in_m3s": 0.1,
+    "q_out_m3s": 0.1,
+    "p_in_bar": 50.0,
+    "p_out_bar": 37.025,
+    "window_start": "2026-11-01T00:00:00Z",
+    "window_end": "2026-11-03T13:00:00Z"
+  },
+  "leak": {
+    "detected_at": "2026-11-03T14:06:00Z",
+    "estimated_start": "2026-11-03T14:00:00Z",
+    "shut_in_at": "2026-11-05T10:00:00Z",
+    "duration_hours": 44.0,
+    "location_m": 13320.0,
+    "location_lonlat": [
+      6.22251,
+      4.82556
+    ],
+    "location_uncertainty_m": 350,
+    "pipeline_type": "trunk_line",
+    "terrain": "water"
+  },
+  "quantification": {
+    "leak_rate_m3s": 0.0288,
+    "leak_rate_orifice_m3s": 0.0293,
+    "volume_m3": 4562.0,
+    "volume_bbl": 28694,
+    "uncertainty_pct": 12,
+    "method": "mass_balance",
+    "cross_check": "orifice"
+  },
+  "impact": {
+    "type": "water",
+    "model": "fay_spreading+drift",
+    "hours_modelled": 24,
+    "slick_area_m2": 353000,
+    "polygon_lonlat": [
+      [
+        6.21811,
+        4.82043
+      ],
+      [
+        6.21894,
+        4.82004
+      ],
+      [
+        6.22008,
+        4.82015
+      ],
+      [
+        6.22135,
+        4.82073
+      ],
+      [
+        6.22257,
+        4.82171
+      ],
+      [
+        6.22355,
+        4.82294
+      ],
+      [
+        6.22413,
+        4.82422
+      ],
+      [
+        6.22424,
+        4.82536
+      ],
+      [
+        6.22385,
+        4.82619
+      ],
+      [
+        6.22302,
+        4.82658
+      ],
+      [
+        6.22188,
+        4.82648
+      ],
+      [
+        6.2206,
+        4.82589
+      ],
+      [
+        6.21938,
+        4.82491
+      ],
+      [
+        6.21841,
+        4.82369
+      ],
+      [
+        6.21782,
+        4.82241
+      ],
+      [
+        6.21772,
+        4.82127
+      ],
+      [
+        6.21811,
+        4.82043
+      ]
+    ]
+  },
+  "report": {
+    "method_version": "doude-method v0.1",
+    "generated_at": "2026-11-09T12:00:00Z",
+    "input_hash": "sha256:PLACEHOLDER",
+    "report_hash": "sha256:PLACEHOLDER"
+  },
+  "_note": "SAMPLE ONLY. Numbers are placeholders near the truth; field names and types are the contract."
+}
