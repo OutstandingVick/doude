@@ -7,6 +7,7 @@ Run from the repo root:
 Until the real engine exists (Days 3-10), /analyze and /readings return the
 sample contract files so the app can be built against them.
 """
+import csv
 import json
 from pathlib import Path
 
@@ -46,8 +47,17 @@ def scenario():
 
 @app.get("/readings")
 def readings(step: int = Query(10, ge=1)):
-    # TODO Day 3: read data/readings.csv and return every `step`-th row.
-    return load("contracts/readings.sample.json")
+    path = ROOT / "data" / "readings.csv"
+    if not path.exists():
+        return JSONResponse(status_code=404, content={
+            "error": "readings_not_found",
+            "message": "data/readings.csv does not exist. Run: python engine/generate.py"})
+    with path.open() as f:
+        rows = list(csv.DictReader(f))[::step]
+    for r in rows:
+        for k in ("p_in_bar", "p_out_bar", "q_in_m3s", "q_out_m3s"):
+            r[k] = float(r[k])
+    return {"pipeline_id": load("scenario.json")["pipeline"]["id"], "step": step, "readings": rows}
 
 
 @app.post("/analyze")
