@@ -10,8 +10,9 @@ sample contract files so the app can be built against them.
 import json
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 ROOT = Path(__file__).resolve().parent.parent
 METHOD_VERSION = "doude-method v0.1"
@@ -41,3 +42,20 @@ def scenario():
     s.pop("ground_truth", None)
     s.pop("leak", None)
     return s
+
+
+@app.get("/readings")
+def readings(step: int = Query(10, ge=1)):
+    # TODO Day 3: read data/readings.csv and return every `step`-th row.
+    return load("contracts/readings.sample.json")
+
+
+@app.post("/analyze")
+def analyze():
+    # TODO Days 5-10: run baseline -> detect -> locate -> quantify -> impact -> report.
+    return load("contracts/analyze_response.sample.json")
+
+
+@app.exception_handler(FileNotFoundError)
+def missing_file(_, exc):
+    return JSONResponse(status_code=404, content={"error": "file_not_found", "message": str(exc)})
