@@ -5,12 +5,15 @@ Run from the repo root:
 
 Reads scenario.json and produces one reading per minute at the inlet and
 outlet sensors: normal operation -> leak -> shut-in after JIV.
+Fixed random seed, so the same scenario always gives a byte-identical file.
 """
 import json
 import math
+import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+SEED = 42
 ONSET_MINUTES = 2        # leak opens over 2 minutes
 SHUT_IN_MINUTES = 10     # valves close over 10 minutes
 STATIC_BAR = 2.0         # pressure left in the isolated, depressurised line
@@ -75,10 +78,24 @@ def true_state(s: dict, t: datetime) -> dict:
     return {k: blend(leaking[k], static[k], f) for k in normal}
 
 
+def add_noise(state: dict, s: dict, rng: random.Random) -> dict:
+    sd_p = s["sensors"]["noise"]["pressure_bar_sd"]
+    sd_q = s["sensors"]["noise"]["flow_m3s_sd"]
+    out = {}
+    for k, v in state.items():
+        if k.startswith("p_"):
+            out[k] = v + rng.gauss(0, sd_p)
+        else:
+            # A meter on a stopped line reads zero, not negative flow.
+            out[k] = 0.0 if v == 0.0 else max(v + rng.gauss(0, sd_q), 0.0)
+    return out
+
+
 def generate(s: dict) -> list[dict]:
+    rng = random.Random(SEED)
     rows = []
     for t in timeline(s):
-        r = true_state(s, t)
+        r = add_noise(true_state(s, t), s, rng)
         rows.append({"timestamp": fmt(t), **{k: round(v, 5) for k, v in r.items()}})
     return rows
 
