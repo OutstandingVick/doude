@@ -36,9 +36,26 @@ def timeline(s: dict) -> list[datetime]:
     return out
 
 
+def true_state(s: dict, t: datetime) -> dict:
+    """Noise-free sensor values at time t."""
+    n = s["normal_operation"]
+    return {"p_in_bar": n["p_in_bar"], "p_out_bar": n["p_out_bar"],
+            "q_in_m3s": n["flow_m3s"], "q_out_m3s": n["flow_m3s"]}
+
+
+def generate(s: dict) -> list[dict]:
+    rows = []
+    for t in timeline(s):
+        r = true_state(s, t)
+        rows.append({"timestamp": fmt(t), **{k: round(v, 5) for k, v in r.items()}})
+    return rows
+
+
 def main():
-    ts = timeline(load_scenario())
-    print(f"{len(ts)} timestamps: {fmt(ts[0])} -> {fmt(ts[-1])}")
+    rows = generate(load_scenario())
+    print(f"generated {len(rows)} rows")
+    for r in rows[::1440]:
+        print(r)
 
 
 if __name__ == "__main__":
