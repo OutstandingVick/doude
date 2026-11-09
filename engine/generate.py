@@ -1,25 +1,26 @@
 """Doude — Phase 1: generate the sensor feed for a scenario.
 
 Run from the repo root:
-    python engine/generate.py
+    python engine/generate.py            # writes data/readings.csv
 
 Reads scenario.json and produces one reading per minute at the inlet and
 outlet sensors: normal operation -> leak -> shut-in after JIV.
 Fixed random seed, so the same scenario always gives a byte-identical file.
 """
+import csv
+import hashlib
 import json
 import math
 import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
 SEED = 42
 ONSET_MINUTES = 2        # leak opens over 2 minutes
 SHUT_IN_MINUTES = 10     # valves close over 10 minutes
 STATIC_BAR = 2.0         # pressure left in the isolated, depressurised line
 DEMAND_SWING = 0.005     # +/-0.5% daily throughput swing (same at both ends)
-
-ROOT = Path(__file__).resolve().parent.parent
 
 
 def parse(ts: str) -> datetime:
@@ -96,15 +97,35 @@ def generate(s: dict) -> list[dict]:
     rows = []
     for t in timeline(s):
         r = add_noise(true_state(s, t), s, rng)
-        rows.append({"timestamp": fmt(t), **{k: round(v, 5) for k, v in r.items()}})
+        rows.append({
+            "timestamp": fmt(t),
+            "p_in_bar": f"{r['p_in_bar']:.3f}",
+            "p_out_bar": f"{r['p_out_bar']:.3f}",
+            "q_in_m3s": f"{r['q_in_m3s']:.5f}",
+            "q_out_m3s": f"{r['q_out_m3s']:.5f}",
+        })
     return rows
 
 
+COLUMNS = ["timestamp", "p_in_bar", "p_out_bar", "q_in_m3s", "q_out_m3s"]
+
+
+def write_csv(rows: list[dict], path: Path) -> str:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=COLUMNS, lineterminator="\n")
+        w.writeheader()
+        w.writerows(rows)
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def main():
-    rows = generate(load_scenario())
-    print(f"generated {len(rows)} rows")
-    for r in rows[::1440]:
-        print(r)
+    s = load_scenario()
+    rows = generate(s)
+    out = ROOT / "data" / "readings.csv"
+    digest = write_csv(rows, out)
+    print(f"wrote {len(rows)} rows to {out.relative_to(ROOT)}")
+    print(f"sha256:{digest}")
 
 
 if __name__ == "__main__":
