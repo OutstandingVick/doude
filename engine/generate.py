@@ -11,6 +11,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ONSET_MINUTES = 2        # leak opens over 2 minutes
+SHUT_IN_MINUTES = 10     # valves close over 10 minutes
+STATIC_BAR = 2.0         # pressure left in the isolated, depressurised line
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -47,16 +49,22 @@ def true_state(s: dict, t: datetime) -> dict:
     n = s["normal_operation"]
     leak = s["ground_truth"]["during_leak"]
     t_leak = parse(s["timeline"]["leak_start"])
+    t_shut = parse(s["timeline"]["shut_in_after_jiv"])
 
     normal = {"p_in_bar": n["p_in_bar"], "p_out_bar": n["p_out_bar"],
               "q_in_m3s": n["flow_m3s"], "q_out_m3s": n["flow_m3s"]}
     leaking = {"p_in_bar": leak["p_in_bar"], "p_out_bar": leak["p_out_bar"],
                "q_in_m3s": leak["q_in_m3s"], "q_out_m3s": leak["q_out_m3s"]}
+    static = {"p_in_bar": STATIC_BAR, "p_out_bar": STATIC_BAR,
+              "q_in_m3s": 0.0, "q_out_m3s": 0.0}
 
     if t < t_leak:
         return dict(normal)
-    f = (t - t_leak).total_seconds() / 60 / ONSET_MINUTES
-    return {k: blend(normal[k], leaking[k], f) for k in normal}
+    if t < t_shut:
+        f = (t - t_leak).total_seconds() / 60 / ONSET_MINUTES
+        return {k: blend(normal[k], leaking[k], f) for k in normal}
+    f = (t - t_shut).total_seconds() / 60 / SHUT_IN_MINUTES
+    return {k: blend(leaking[k], static[k], f) for k in normal}
 
 
 def generate(s: dict) -> list[dict]:
