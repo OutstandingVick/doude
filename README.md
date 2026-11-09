@@ -62,6 +62,14 @@ Drain-down of the isolated section after shut-in is not counted in v0.1.
 - Volume within **±15%** of 4,580 m³.
 - Same input data gives an identical report and SHA-256 hash.
 
+## Phase 1: sensor data ✅
+```bash
+python engine/generate.py      # writes data/readings.csv (7,201 rows)
+python -m pytest engine -q     # 7 checks
+```
+One reading per minute at both ends. Normal operation with a ±0.5% daily demand swing, the leak opening over 2 min at 14:00 on 3 Nov, then a 10-min shut-in after the JIV, leaving the line at 2 bar static with zero flow. Sensor noise uses a fixed seed (42), so the file is byte-identical on every run:
+`sha256:3fb8a030cdf0e8c4c1ba5717b0e08fe3c367cb18ff8eb35786e249a9154a2cad`
+
 ## Physics used (doude-method v0.1)
 - Friction: Darcy-Weisbach, Swamee-Jain friction factor.
 - Leak: orifice equation, Cd = 0.61.
