@@ -7,12 +7,14 @@ Reads scenario.json and produces one reading per minute at the inlet and
 outlet sensors: normal operation -> leak -> shut-in after JIV.
 """
 import json
+import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ONSET_MINUTES = 2        # leak opens over 2 minutes
 SHUT_IN_MINUTES = 10     # valves close over 10 minutes
 STATIC_BAR = 2.0         # pressure left in the isolated, depressurised line
+DEMAND_SWING = 0.005     # +/-0.5% daily throughput swing (same at both ends)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -59,7 +61,13 @@ def true_state(s: dict, t: datetime) -> dict:
               "q_in_m3s": 0.0, "q_out_m3s": 0.0}
 
     if t < t_leak:
-        return dict(normal)
+        state = dict(normal)
+        # Daily demand swing: changes throughput but not the in/out balance.
+        hours = (t - parse(s["timeline"]["data_start"])).total_seconds() / 3600
+        k = 1 + DEMAND_SWING * math.sin(2 * math.pi * hours / 24)
+        state["q_in_m3s"] *= k
+        state["q_out_m3s"] *= k
+        return state
     if t < t_shut:
         f = (t - t_leak).total_seconds() / 60 / ONSET_MINUTES
         return {k: blend(normal[k], leaking[k], f) for k in normal}
