@@ -1,0 +1,28 @@
+{
+  "pipeline_id": "BYS-TL-01",
+  "step": 10,
+  "readings": [
+    {
+      "timestamp": "2026-11-03T13:50:00Z",
+      "p_in_bar": 50.012,
+      "p_out_bar": 37.031,
+      "q_in_m3s": 0.10004,
+      "q_out_m3s": 0.09991
+    },
+    {
+      "timestamp": "2026-11-03T14:00:00Z",
+      "p_in_bar": 49.981,
+      "p_out_bar": 37.018,
+      "q_in_m3s": 0.10012,
+      "q_out_m3s": 0.09996
+    },
+    {
+      "timestamp": "2026-11-03T14:10:00Z",
+      "p_in_bar": 49.061,
+      "p_out_bar": 37.022,
+      "q_in_m3s": 0.10458,
+      "q_out_m3s": 0.07573
+    }
+  ],
+  "_note": "SAMPLE ONLY. Real data comes from data/readings.csv."
+}
