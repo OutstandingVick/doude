@@ -1,0 +1,96 @@
+{
+  "name": "Doude test scenario 01 \u2014 trunk line leak into creek",
+  "method_version": "doude-method v0.1",
+  "pipeline": {
+    "id": "BYS-TL-01",
+    "type": "trunk_line",
+    "note": "Trunk line: keeps flowing until JIV is conducted, then shut in.",
+    "length_m": 20000.0,
+    "inner_diameter_m": 0.3,
+    "roughness_m": 4.5e-05,
+    "terrain_at_leak": "water",
+    "route_lonlat": [
+      [
+        6.27,
+        4.93
+      ],
+      [
+        6.235,
+        4.865
+      ],
+      [
+        6.205,
+        4.77
+      ]
+    ],
+    "route_note": "Illustrative coordinates near Yenagoa, Bayelsa. Not a real asset."
+  },
+  "fluid": {
+    "name": "crude oil",
+    "density_kg_m3": 850.0,
+    "viscosity_pa_s": 0.01
+  },
+  "sensors": {
+    "inlet": {
+      "distance_m": 0,
+      "measures": [
+        "pressure_bar",
+        "flow_m3s"
+      ]
+    },
+    "outlet": {
+      "distance_m": 20000.0,
+      "measures": [
+        "pressure_bar",
+        "flow_m3s"
+      ]
+    },
+    "sample_interval_s": 60,
+    "noise": {
+      "pressure_bar_sd": 0.05,
+      "flow_m3s_sd": 0.0005
+    }
+  },
+  "normal_operation": {
+    "flow_m3s": 0.1,
+    "flow_bbl_day": 54344,
+    "p_in_bar": 50.0,
+    "p_out_bar": 37.025,
+    "pump_shutoff_bar": 60.0
+  },
+  "timeline": {
+    "data_start": "2026-11-01T00:00:00Z",
+    "leak_start": "2026-11-03T14:00:00Z",
+    "shut_in_after_jiv": "2026-11-05T10:00:00Z",
+    "data_end": "2026-11-06T00:00:00Z"
+  },
+  "leak": {
+    "location_m": 13400.0,
+    "location_lonlat": [
+      6.22224,
+      4.82458
+    ],
+    "hole_diameter_m": 0.025,
+    "discharge_coefficient": 0.61
+  },
+  "ground_truth": {
+    "during_leak": {
+      "q_in_m3s": 0.10461,
+      "q_out_m3s": 0.07569,
+      "q_leak_m3s": 0.02892,
+      "p_in_bar": 49.056,
+      "p_out_bar": 37.025,
+      "p_at_leak_bar": 39.635
+    },
+    "duration_hours": 44.0,
+    "volume_released_m3": 4580.4,
+    "volume_released_bbl": 28810,
+    "excluded": "Drain-down of the isolated segment after shut-in is not counted in v0.1."
+  },
+  "pass_criteria": {
+    "detect_within_minutes": 15,
+    "location_tolerance_m": 500,
+    "volume_tolerance_pct": 15,
+    "repeatable": "Same input data must give an identical report and SHA-256 hash."
+  }
+}
