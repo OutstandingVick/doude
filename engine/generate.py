@@ -10,6 +10,8 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+ONSET_MINUTES = 2        # leak opens over 2 minutes
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -36,11 +38,25 @@ def timeline(s: dict) -> list[datetime]:
     return out
 
 
+def blend(a: float, b: float, f: float) -> float:
+    return a + (b - a) * min(max(f, 0.0), 1.0)
+
+
 def true_state(s: dict, t: datetime) -> dict:
     """Noise-free sensor values at time t."""
     n = s["normal_operation"]
-    return {"p_in_bar": n["p_in_bar"], "p_out_bar": n["p_out_bar"],
-            "q_in_m3s": n["flow_m3s"], "q_out_m3s": n["flow_m3s"]}
+    leak = s["ground_truth"]["during_leak"]
+    t_leak = parse(s["timeline"]["leak_start"])
+
+    normal = {"p_in_bar": n["p_in_bar"], "p_out_bar": n["p_out_bar"],
+              "q_in_m3s": n["flow_m3s"], "q_out_m3s": n["flow_m3s"]}
+    leaking = {"p_in_bar": leak["p_in_bar"], "p_out_bar": leak["p_out_bar"],
+               "q_in_m3s": leak["q_in_m3s"], "q_out_m3s": leak["q_out_m3s"]}
+
+    if t < t_leak:
+        return dict(normal)
+    f = (t - t_leak).total_seconds() / 60 / ONSET_MINUTES
+    return {k: blend(normal[k], leaking[k], f) for k in normal}
 
 
 def generate(s: dict) -> list[dict]:
