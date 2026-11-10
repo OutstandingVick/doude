@@ -61,3 +61,99 @@ def steady_window(
     return [row for row in rows if start_dt <= row["t"] < end_dt]
 
 
+def point_along_route(x, scenario) -> List[float]:
+    """Interpolate the [lon, lat] route point at distance ``x`` metres from the inlet.
+
+    Each route segment's share of the total straight-line length (in degrees)
+    is treated as its share of the pipeline length; the point is linearly
+    interpolated and rounded to 5 decimal places.
+    """
+    route = scenario["pipeline"]["route_lonlat"]
+    length = scenario["pipeline"]["length_m"]
+    if x <= 0:
+        return [round(float(route[0][0]), 5), round(float(route[0][1]), 5)]
+    if x >= length:
+        return [round(float(route[-1][0]), 5), round(float(route[-1][1]), 5)]
+    segment_lengths = []
+    total = 0.0
+    for i in range(len(route) - 1):
+        lon1, lat1 = route[i]
+        lon2, lat2 = route[i + 1]
+        distance = math.hypot(lon2 - lon1, lat2 - lat1)
+        segment_lengths.append(distance)
+        total += distance
+    target = (x / length) * total
+    accumulated = 0.0
+    for i in range(len(route) - 1):
+        distance = segment_lengths[i]
+        if accumulated + distance >= target:
+            fraction = 0.0 if distance == 0 else (target - accumulated) / distance
+            lon1, lat1 = route[i]
+            lon2, lat2 = route[i + 1]
+            lon = lon1 + fraction * (lon2 - lon1)
+            lat = lat1 + fraction * (lat2 - lat1)
+            return [round(float(lon), 5), round(float(lat), 5)]
+        accumulated += distance
+    return [round(float(route[-1][0]), 5), round(float(route[-1][1]), 5)]
+
+
+def _location_m(p_in, p_out, g_in, g_out, length) -> float:
+    """Gradient-intersection leak distance (metres from the inlet), unclamped."""
+    return (p_in - p_out - g_out * length) / (g_in - g_out)
+
+
+def locate_leak(rows, detection, scenario) -> Optional[Dict]:
+    """Locate the leak from steady leak-period averages.
+
+    Returns ``None`` when ``detection["detected"]`` is false. Otherwise
+    averages pressures and flows over the steady window, applies the
+    gradient-intersection formula (clamped to [0, L]), and reports the
+    location, its route position, an uncertainty estimate, and the window.
+    """
+    if not detection["detected"]:
+        return None
+    window = steady_window(
+        rows, detection["estimated_start"], detection["shut_in_at"]
+    )
+    count = len(window)
+    p_in = sum(row["p_in_bar"] for row in window) / count
+    p_out = sum(row["p_out_bar"] for row in window) / count
+    q_in = sum(row["q_in_m3s"] for row in window) / count
+    q_out = sum(row["q_out_m3s"] for row in window) / count
+    length = scenario["pipeline"]["length_m"]
+    g_in = pressure_gradient(q_in, scenario)
+    g_out = pressure_gradient(q_out, scenario)
+    x = _location_m(p_in, p_out, g_in, g_out, length)
+    x = max(0.0, min(length, x))
+    uncertainty = 0.0
+    for dp_in in (-0.05, 0.05):
+        for dp_out in (-0.05, 0.05):
+            alt = _location_m(p_in + dp_in, p_out + dp_out, g_in, g_out, length)
+            alt = max(0.0, min(length, alt))
+            uncertainty = max(uncertainty, abs(alt - x))
+    return {
+        "location_m": round(x, 1),
+        "location_lonlat": point_along_route(x, scenario),
+        "location_uncertainty_m": round(uncertainty),
+        "averages": {
+            "p_in_bar": p_in,
+            "p_out_bar": p_out,
+            "q_in_m3s": q_in,
+            "q_out_m3s": q_out,
+        },
+        "window_start": window[0]["timestamp"],
+        "window_end": window[-1]["timestamp"],
+    }
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.path.insert(0, str(ROOT))
+    from engine import detect
+
+    rows = detect.load_readings(detect.DATA_FILE)
+    scenario = load_scenario()
+    detection = detect.detect(rows)
+    result = locate_leak(rows, detection, scenario)
+    print(json.dumps(result, indent=2))
