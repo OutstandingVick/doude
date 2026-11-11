@@ -79,3 +79,39 @@ def volume_uncertainty_pct(rows: List[Dict], detection: Dict) -> float:
     baseline_bias = 2.0 * imbalance_std / math.sqrt(n_baseline) * 60.0 * n
     pct = (meter_noise + baseline_bias) / volume * 100.0 + 5.0
     return round(pct, 1)
+
+
+def quantify(
+    rows: List[Dict], detection: Dict, location: Dict, scenario: Dict
+) -> Optional[Dict]:
+    """Summarize the released volume, leak rate, hole size, and uncertainty.
+
+    Returns ``None`` when the detection reports no leak.
+    """
+    if not detection["detected"]:
+        return None
+    imbalance_mean = detection["baseline"]["imbalance_mean"]
+    averages = location["averages"]
+    leak_rate = averages["q_in_m3s"] - averages["q_out_m3s"] - imbalance_mean
+    volume = integrated_volume(rows, detection)
+    volume_m3 = round(volume, 1)
+    volume_steady = steady_volume(location, detection)
+    p_leak = pressure_at_leak(location, scenario)
+    hole = equivalent_hole_diameter(leak_rate, p_leak, scenario)
+    uncertainty = volume_uncertainty_pct(rows, detection)
+    return {
+        "leak_rate_m3s": round(leak_rate, 5),
+        "volume_m3": volume_m3,
+        "volume_bbl": round(volume_m3 * BBL_PER_M3),
+        "volume_steady_m3": round(volume_steady, 1),
+        "methods_agree_pct": round(abs(volume - volume_steady) / volume * 100.0, 2),
+        "pressure_at_leak_bar": round(p_leak, 2),
+        "equivalent_hole_mm": round(hole * 1000.0, 1),
+        "uncertainty_pct": uncertainty,
+        "volume_range_m3": [
+            round(volume * (1.0 - uncertainty / 100.0), 1),
+            round(volume * (1.0 + uncertainty / 100.0), 1),
+        ],
+        "method": "mass_balance",
+        "cross_check": "steady_state_average",
+    }
