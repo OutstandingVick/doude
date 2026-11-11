@@ -75,3 +75,15 @@ One reading per minute at both ends. Normal operation with a ±0.5% daily demand
 - Leak: orifice equation, Cd = 0.61.
 - Pump: P_in = 60 bar − k·Q², so inlet pressure falls when a leak pulls more flow.
 - Location check: gradient intersection recovers 13,400 m exactly from the true values.
+
+
+## Phase 4: quantification ✅
+```bash
+python engine/quantify.py
+```
+- **Mass balance** (`integrated_volume`): sums `(q_in − q_out − baseline imbalance) × 60` minute by minute over the leak window — the primary method.
+- **Steady-state cross-check** (`steady_volume`): mean leak rate × leak duration.
+- **Orifice back-calculation**: inverts `Q = Cd·A·√(2P/ρ)` to recover the hole size.
+
+Result on the seed-42 readings: **4,592 m³ (≈ 28,880 bbl)** released, **±5.2%** uncertainty, equivalent hole **25.0 mm**.
+
