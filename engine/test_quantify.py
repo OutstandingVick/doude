@@ -56,3 +56,20 @@ def test_volume_range(result, scenario):
 
 def test_bbl_conversion(result):
     assert result["volume_bbl"] == round(result["volume_m3"] * 6.28981)
+
+
+def test_none_when_not_detected(rows, scenario):
+    assert quantify.quantify(rows, {"detected": False}, None, scenario) is None
+
+
+def test_no_ground_truth_in_source():
+    from pathlib import Path
+
+    text = Path(quantify.__file__).read_text()
+    assert "ground_truth" not in text
+
+
+def test_deterministic(rows, detection, location, scenario):
+    first = quantify.quantify(rows, detection, location, scenario)
+    second = quantify.quantify(rows, detection, location, scenario)
+    assert first == second
