@@ -42,3 +42,8 @@ def test_leak_rate_accuracy(result, scenario):
 
 def test_methods_agree(result):
     assert result["methods_agree_pct"] < 10.0
+
+
+def test_hole_size(result, scenario):
+    truth = scenario["leak"]["hole_diameter_m"] * 1000.0
+    assert abs(result["equivalent_hole_mm"] - truth) / truth * 100.0 <= 10.0
