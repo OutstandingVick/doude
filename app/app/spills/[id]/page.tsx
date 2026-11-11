@@ -122,7 +122,7 @@ export default function SpillDetailPage() {
         {tab === "Quantification" && <QuantificationTab analysis={analysis} />}
         {tab === "Impact" && <ImpactTab analysis={analysis} />}
         {tab === "Evidence & hashes" && <EvidenceTab analysis={analysis} />}
-        {tab === "Regulatory forms" && <ComingSoon text="Regulatory forms" />}
+        {tab === "Regulatory forms" && <RegulatoryTab />}
       </div>
     </div>
   );
@@ -341,8 +341,39 @@ function ImpactTab({ analysis }: { analysis: AnalyzeResponse }) {
   );
 }
 
-function ComingSoon({ text }: { text: string }) {
-  return <p className="text-sm text-muted">{text} content is built in a later step.</p>;
+function RegulatoryTab() {
+  const forms: {
+    name: string;
+    desc: string;
+    status: string;
+    tone: "success" | "warn" | "neutral";
+  }[] = [
+    { name: "EGASPIN Form A", desc: "Notification · within 24 h", status: "Ready to draft", tone: "success" },
+    { name: "EGASPIN Form B", desc: "Spill response · within 2 weeks", status: "Pending JIV", tone: "warn" },
+    { name: "EGASPIN Form C", desc: "Clean-up report", status: "Pending clean-up", tone: "neutral" },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {forms.map((form) => (
+        <div key={form.name} className="rounded-xl border border-border bg-surface p-5">
+          <div className="text-sm font-medium text-text">{form.name}</div>
+          <div className="mt-0.5 text-xs text-muted">{form.desc}</div>
+          <div className="mt-4">
+            <StatusPill tone={form.tone} label={form.status} />
+          </div>
+          <button
+            type="button"
+            disabled
+            title="Phase 7"
+            className="mt-4 w-full cursor-not-allowed rounded-lg border border-border px-3 py-2 text-sm text-muted opacity-50"
+          >
+            Generate
+          </button>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function EvidenceTab({ analysis }: { analysis: AnalyzeResponse }) {
