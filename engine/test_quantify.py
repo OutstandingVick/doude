@@ -33,3 +33,12 @@ def result(rows, detection, location, scenario):
 def test_volume_accuracy(result, scenario):
     truth = scenario["ground_truth"]["volume_released_m3"]
     assert abs(result["volume_m3"] - truth) / truth * 100.0 <= 15.0
+
+
+def test_leak_rate_accuracy(result, scenario):
+    truth = scenario["ground_truth"]["during_leak"]["q_leak_m3s"]
+    assert abs(result["leak_rate_m3s"] - truth) / truth * 100.0 <= 5.0
+
+
+def test_methods_agree(result):
+    assert result["methods_agree_pct"] < 10.0
