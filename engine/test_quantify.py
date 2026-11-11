@@ -47,3 +47,12 @@ def test_methods_agree(result):
 def test_hole_size(result, scenario):
     truth = scenario["leak"]["hole_diameter_m"] * 1000.0
     assert abs(result["equivalent_hole_mm"] - truth) / truth * 100.0 <= 10.0
+
+
+def test_volume_range(result, scenario):
+    truth = scenario["ground_truth"]["volume_released_m3"]
+    assert result["volume_range_m3"][0] <= truth <= result["volume_range_m3"][1]
+
+
+def test_bbl_conversion(result):
+    assert result["volume_bbl"] == round(result["volume_m3"] * 6.28981)
