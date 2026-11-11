@@ -50,6 +50,11 @@ body {
   color: var(--color-muted) !important;
 }
 
+.leaflet-div-icon {
+  background: transparent;
+  border: none;
+}
+
 /* Pulsing leak marker */
 @keyframes doude-pulse {
   0% {
