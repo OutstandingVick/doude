@@ -115,3 +115,17 @@ def quantify(
         "method": "mass_balance",
         "cross_check": "steady_state_average",
     }
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.path.insert(0, str(ROOT))
+    from engine import detect, locate
+
+    rows = detect.load_readings(detect.DATA_FILE)
+    scenario = locate.load_scenario()
+    detection = detect.detect(rows)
+    location = locate.locate_leak(rows, detection, scenario)
+    result = quantify(rows, detection, location, scenario)
+    print(json.dumps(result, indent=2))
