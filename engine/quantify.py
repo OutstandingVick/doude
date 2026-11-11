@@ -58,3 +58,24 @@ def equivalent_hole_diameter(
     pressure_pa = p_leak_bar * 1e5
     area = leak_rate_m3s / (DISCHARGE_COEFF * math.sqrt(2.0 * pressure_pa / density))
     return math.sqrt(4.0 * area / math.pi)
+
+
+def volume_uncertainty_pct(rows: List[Dict], detection: Dict) -> float:
+    """Percent uncertainty of the integrated volume.
+
+    Adds flow-meter noise (2 * sd * sqrt(n) * 60) and baseline bias
+    (2 * sd / sqrt(n_baseline) * 60 * n), divides by the integrated volume,
+    and adds a fixed 5-point model allowance.
+    """
+    imbalance_std = detection["baseline"]["imbalance_std"]
+    window = [
+        row for row in rows
+        if detection["estimated_start"] <= row["timestamp"] < detection["shut_in_at"]
+    ]
+    n = len(window)
+    n_baseline = 2880
+    volume = integrated_volume(rows, detection)
+    meter_noise = 2.0 * imbalance_std * math.sqrt(n) * 60.0
+    baseline_bias = 2.0 * imbalance_std / math.sqrt(n_baseline) * 60.0 * n
+    pct = (meter_noise + baseline_bias) / volume * 100.0 + 5.0
+    return round(pct, 1)
