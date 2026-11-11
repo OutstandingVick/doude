@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { AnalysisProvider } from "@/components/AnalysisProvider";
+import { Sidebar } from "@/components/Sidebar";
 import "./globals.css";
 
 const inter = Inter({
@@ -19,7 +21,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <AnalysisProvider>
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <div className="min-w-0 flex-1 p-6">{children}</div>
+          </div>
+        </AnalysisProvider>
+      </body>
     </html>
   );
 }
