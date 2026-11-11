@@ -44,3 +44,16 @@ def offset_lonlat(lonlat, east_m: float, north_m: float) -> List[float]:
     dlat = north_m / 110540.0
     dlon = east_m / (111320.0 * math.cos(math.radians(lat)))
     return [lon + dlon, lat + dlat]
+
+
+def slick_polygon(center_lonlat, radius_m: float) -> List[List[float]]:
+    """Closed ring of ``POLYGON_POINTS`` points on a circle, first == last."""
+    pts = []
+    for i in range(POLYGON_POINTS):
+        angle = 2.0 * math.pi * i / POLYGON_POINTS
+        east = radius_m * math.sin(angle)
+        north = radius_m * math.cos(angle)
+        p = offset_lonlat(center_lonlat, east, north)
+        pts.append([round(p[0], 5), round(p[1], 5)])
+    pts.append(pts[0])
+    return pts
