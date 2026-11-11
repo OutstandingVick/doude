@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { useAnalysis } from "@/components/AnalysisProvider";
 import { Topbar } from "@/components/Topbar";
 import { Tabs } from "@/components/Tabs";
 import { StatusPill } from "@/components/StatusPill";
+import { CopyField } from "@/components/CopyField";
+import { verify } from "@/lib/api";
 import {
   formatBbl,
   formatCoord,
@@ -119,7 +121,7 @@ export default function SpillDetailPage() {
         )}
         {tab === "Quantification" && <QuantificationTab analysis={analysis} />}
         {tab === "Impact" && <ImpactTab analysis={analysis} />}
-        {tab === "Evidence & hashes" && <ComingSoon text="Evidence & hashes" />}
+        {tab === "Evidence & hashes" && <EvidenceTab analysis={analysis} />}
         {tab === "Regulatory forms" && <ComingSoon text="Regulatory forms" />}
       </div>
     </div>
@@ -341,4 +343,44 @@ function ImpactTab({ analysis }: { analysis: AnalyzeResponse }) {
 
 function ComingSoon({ text }: { text: string }) {
   return <p className="text-sm text-muted">{text} content is built in a later step.</p>;
+}
+
+function EvidenceTab({ analysis }: { analysis: AnalyzeResponse }) {
+  const [verifying, setVerifying] = useState(false);
+  const [result, setResult] = useState<boolean | null>(null);
+
+  async function handleVerify() {
+    setVerifying(true);
+    setResult(null);
+    try {
+      const v = await verify();
+      setResult(v.repeatable);
+    } catch {
+      setResult(false);
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  return (
+    <div className="max-w-2xl space-y-4">
+      <CopyField label="Method version" value={analysis.report.method_version} />
+      <CopyField label="Input hash" value={analysis.report.input_hash} />
+      <CopyField label="Report hash" value={analysis.report.report_hash} />
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleVerify}
+          disabled={verifying}
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-bg transition-colors hover:bg-primary/90 disabled:opacity-60"
+        >
+          {verifying && <Loader2 className="h-4 w-4 animate-spin" />}
+          Verify now
+        </button>
+        {result === true && <StatusPill tone="success" label="Verified — repeatable" />}
+        {result === false && <StatusPill tone="danger" label="Mismatch" />}
+      </div>
+    </div>
+  );
 }
