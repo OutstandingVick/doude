@@ -25,3 +25,11 @@ def integrated_volume(rows: List[Dict], detection: Dict) -> float:
         if detection["estimated_start"] <= row["timestamp"] < detection["shut_in_at"]:
             total += (row["q_in_m3s"] - row["q_out_m3s"] - imbalance_mean) * 60.0
     return total
+
+
+def steady_volume(location: Dict, detection: Dict) -> float:
+    """Released volume in m3 from the steady-state average leak rate."""
+    imbalance_mean = detection["baseline"]["imbalance_mean"]
+    averages = location["averages"]
+    leak_rate = averages["q_in_m3s"] - averages["q_out_m3s"] - imbalance_mean
+    return leak_rate * detection["duration_hours"] * 3600.0
