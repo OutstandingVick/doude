@@ -116,3 +116,12 @@ def analyze(readings_path=DATA_FILE, scenario_path=SCENARIO) -> Dict:
     }
     response["report"]["report_hash"] = canonical_hash(_hash_input(response))
     return response
+
+
+def verify(response: Dict) -> bool:
+    """Return True iff the stored ``report_hash`` matches the response contents."""
+    return canonical_hash(_hash_input(response)) == response["report"]["report_hash"]
+
+
+if __name__ == "__main__":
+    print(json.dumps(analyze(), indent=2))
