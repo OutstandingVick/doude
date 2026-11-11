@@ -98,3 +98,13 @@ uvicorn engine.main:app --reload --port 8000  # then POST http://localhost:8000/
 
 On the seed-42 readings: slick area **807,237 m² (≈ 0.81 km²)** after 6 h, report hash
 `sha256:c3c01a17613480c20397af9945d4244e0fd8213979095b26a7ff5a517cab959b`.
+
+## Phase 6: dashboard ✅
+```bash
+cd app && npm install && npm run dev   # http://localhost:3000
+```
+A dark, regulator-grade Next.js dashboard (App Router, TypeScript, Tailwind, recharts,
+Leaflet) for NOSDRA/NUPRC and operators. Pages: Dashboard (KPIs, spill map, event
+timeline, sensor charts), Spill register, and Spill detail (overview, quantification,
+impact, evidence & hashes, regulatory forms). Reads the engine at
+`NEXT_PUBLIC_DOUDE_API` (default `http://localhost:8000`).
