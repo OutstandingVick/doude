@@ -8,6 +8,8 @@ import { Topbar } from "@/components/Topbar";
 import { Tabs } from "@/components/Tabs";
 import { StatusPill } from "@/components/StatusPill";
 import { CopyField } from "@/components/CopyField";
+import { Skeleton } from "@/components/Skeleton";
+import { OfflineCard } from "@/components/OfflineCard";
 import { verify } from "@/lib/api";
 import {
   formatBbl,
@@ -50,17 +52,33 @@ function downloadReport(data: unknown, pipelineId: string) {
 }
 
 export default function SpillDetailPage() {
-  const { analysis, scenario } = useAnalysis();
+  const { analysis, scenario, loading, error } = useAnalysis();
   const [tab, setTab] = useState(TAB_ITEMS[0]);
 
-  if (!analysis) {
+  if (error) {
     return (
       <div>
         <Topbar
           title="Spill details"
           breadcrumb={[{ label: "Spill register", href: "/spills" }, { label: "SPL-0001" }]}
         />
-        <p className="text-muted">Loading…</p>
+        <OfflineCard message={error} />
+      </div>
+    );
+  }
+
+  if (loading || !analysis) {
+    return (
+      <div>
+        <Topbar
+          title="Spill details"
+          breadcrumb={[{ label: "Spill register", href: "/spills" }, { label: "SPL-0001" }]}
+        />
+        <div className="space-y-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-10 w-72" />
+          <Skeleton className="h-64" />
+        </div>
       </div>
     );
   }

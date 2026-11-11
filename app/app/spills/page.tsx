@@ -7,6 +7,8 @@ import { useAnalysis } from "@/components/AnalysisProvider";
 import { Topbar } from "@/components/Topbar";
 import { StatusPill } from "@/components/StatusPill";
 import { EmptyState } from "@/components/EmptyState";
+import { Skeleton } from "@/components/Skeleton";
+import { OfflineCard } from "@/components/OfflineCard";
 import { Siren } from "lucide-react";
 import { formatBbl, formatKm, formatUtc } from "@/lib/format";
 import type { AnalyzeResponse } from "@/lib/types";
@@ -36,14 +38,26 @@ function buildRow(analysis: AnalyzeResponse, verified: boolean): SpillRow {
 }
 
 export default function SpillsPage() {
-  const { analysis, verification } = useAnalysis();
+  const { analysis, verification, loading, error } = useAnalysis();
   const [view, setView] = useState<"list" | "grid">("list");
 
-  if (!analysis) {
+  if (error) {
     return (
       <div>
         <Topbar title="Spill register" breadcrumb={[{ label: "Spill register" }]} />
-        <p className="text-muted">Loading…</p>
+        <OfflineCard message={error} />
+      </div>
+    );
+  }
+
+  if (loading || !analysis) {
+    return (
+      <div>
+        <Topbar title="Spill register" breadcrumb={[{ label: "Spill register" }]} />
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-64" />
+        </div>
       </div>
     );
   }

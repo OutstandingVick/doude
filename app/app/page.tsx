@@ -12,6 +12,8 @@ import { Gauge } from "@/components/Gauge";
 import { PipelineBar } from "@/components/PipelineBar";
 import { EventTimeline } from "@/components/EventTimeline";
 import { ReadingsCharts } from "@/components/ReadingsCharts";
+import { Skeleton } from "@/components/Skeleton";
+import { OfflineCard } from "@/components/OfflineCard";
 import {
   formatBbl,
   formatCoord,
@@ -36,13 +38,33 @@ function LegendChip({ color, label }: { color: string; label: string }) {
 }
 
 export default function Dashboard() {
-  const { analysis, scenario, readings } = useAnalysis();
+  const { analysis, scenario, readings, loading, error } = useAnalysis();
 
-  if (!analysis || !scenario) {
+  if (error) {
     return (
       <div>
         <Topbar title="Dashboard" breadcrumb={[{ label: "Dashboard" }]} />
-        <p className="text-muted">Loading…</p>
+        <OfflineCard message={error} />
+      </div>
+    );
+  }
+
+  if (loading || !analysis || !scenario) {
+    return (
+      <div>
+        <Topbar title="Dashboard" breadcrumb={[{ label: "Dashboard" }]} />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-32" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Skeleton className="h-[420px] lg:col-span-2" />
+            <Skeleton className="h-[420px]" />
+          </div>
+          <Skeleton className="h-64" />
+        </div>
       </div>
     );
   }
