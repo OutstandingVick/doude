@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import { AnalysisProvider } from "@/components/AnalysisProvider";
 import { Sidebar } from "@/components/Sidebar";
@@ -24,7 +25,9 @@ export default function RootLayout({
       <body className="min-h-screen antialiased">
         <AnalysisProvider>
           <div className="flex min-h-screen">
-            <Sidebar />
+            <Suspense fallback={<div className="w-[248px] shrink-0" />}>
+              <Sidebar />
+            </Suspense>
             <div className="min-w-0 flex-1 p-6">{children}</div>
           </div>
         </AnalysisProvider>
