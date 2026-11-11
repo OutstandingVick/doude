@@ -31,3 +31,16 @@ def slick_radius_m(volume_m3: float, hours: float, oil_density: float) -> float:
     t = hours * 3600.0
     inner = delta * G * volume_m3 ** 2 * t ** 1.5 / math.sqrt(WATER_KIN_VISCOSITY)
     return FAY_K * inner ** (1.0 / 6.0)
+
+
+def drift_m(hours: float) -> float:
+    """Downstream drift distance in metres after ``hours``."""
+    return (CURRENT_MS + WIND_FACTOR * WIND_MS) * hours * 3600.0
+
+
+def offset_lonlat(lonlat, east_m: float, north_m: float) -> List[float]:
+    """Offset a ``[lon, lat]`` point by ``east_m``/``north_m`` metres."""
+    lon, lat = lonlat
+    dlat = north_m / 110540.0
+    dlon = east_m / (111320.0 * math.cos(math.radians(lat)))
+    return [lon + dlon, lat + dlat]
