@@ -33,3 +33,12 @@ def steady_volume(location: Dict, detection: Dict) -> float:
     averages = location["averages"]
     leak_rate = averages["q_in_m3s"] - averages["q_out_m3s"] - imbalance_mean
     return leak_rate * detection["duration_hours"] * 3600.0
+
+
+def pressure_at_leak(location: Dict, scenario: Dict) -> float:
+    """Pressure in bar at the leak point, from inlet pressure and gradient."""
+    from engine import locate
+
+    averages = location["averages"]
+    gradient = locate.pressure_gradient(averages["q_in_m3s"], scenario)
+    return averages["p_in_bar"] - gradient * location["location_m"]
