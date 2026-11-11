@@ -87,3 +87,14 @@ python engine/quantify.py
 
 Result on the seed-42 readings: **4,592 m³ (≈ 28,880 bbl)** released, **±5.2%** uncertainty, equivalent hole **25.0 mm**.
 
+## Phase 5: impact, report & API ✅
+```bash
+python engine/report.py                       # full chain -> tamper-evident report JSON
+uvicorn engine.main:app --reload --port 8000  # then POST http://localhost:8000/analyze
+```
+- **Impact** (`engine/impact.py`): Fay gravity-viscous slick spreading + current/wind drift.
+- **Report** (`engine/report.py`): repeatable `report_hash` (SHA-256, excludes timestamps), `verify()` for tamper detection.
+- **API**: `/analyze` now returns the real chain; `/verify` confirms repeatability.
+
+On the seed-42 readings: slick area **807,237 m² (≈ 0.81 km²)** after 6 h, report hash
+`sha256:c3c01a17613480c20397af9945d4244e0fd8213979095b26a7ff5a517cab959b`.
