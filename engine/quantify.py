@@ -42,3 +42,19 @@ def pressure_at_leak(location: Dict, scenario: Dict) -> float:
     averages = location["averages"]
     gradient = locate.pressure_gradient(averages["q_in_m3s"], scenario)
     return averages["p_in_bar"] - gradient * location["location_m"]
+
+
+def equivalent_hole_diameter(
+    leak_rate_m3s: float, p_leak_bar: float, scenario: Dict
+) -> float:
+    """Equivalent orifice diameter in metres from leak rate and pressure.
+
+    Inverts Q = Cd * A * sqrt(2 P / rho) with P in Pa and A = pi * d^2 / 4.
+    Returns 0.0 when the pressure is not positive.
+    """
+    if p_leak_bar <= 0:
+        return 0.0
+    density = scenario["fluid"]["density_kg_m3"]
+    pressure_pa = p_leak_bar * 1e5
+    area = leak_rate_m3s / (DISCHARGE_COEFF * math.sqrt(2.0 * pressure_pa / density))
+    return math.sqrt(4.0 * area / math.pi)
