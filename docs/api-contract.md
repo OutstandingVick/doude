@@ -70,12 +70,25 @@ If no leak is found: `detected: false`, and `leak`, `quantification` and `impact
 | `leak.shut_in_at` | When flow dropped to zero (end of release) |
 | `leak.location_m` / `location_lonlat` | Estimated breach position |
 | `quantification.leak_rate_m3s` | Mean leak rate (mass balance) |
-| `quantification.leak_rate_orifice_m3s` | Cross-check from the orifice equation |
 | `quantification.volume_m3` / `volume_bbl` | Total released, start → shut-in |
+| `quantification.volume_steady_m3` | Steady-state cross-check volume |
+| `quantification.methods_agree_pct` | abs(mass-balance − steady) / mass-balance, as % |
+| `quantification.equivalent_hole_mm` | Hole size back-calculated from the orifice equation |
+| `quantification.pressure_at_leak_bar` | Pressure at the breach point |
 | `quantification.uncertainty_pct` | ± band on volume |
+| `quantification.volume_range_m3` | `[low, high]` volume band |
+| `impact.volume_spread_m3` | Volume spread after `hours_modelled` |
+| `impact.slick_radius_m` / `slick_area_m2` | Fay-radius and area of the slick |
+| `impact.center_lonlat` | Drifted slick centre |
 | `impact.polygon_lonlat` | Slick outline for the map (closed ring, first point = last) |
 | `report.input_hash` | SHA-256 of the readings file bytes |
-| `report.report_hash` | SHA-256 of this response without the `report_hash` field, keys sorted |
+| `report.report_hash` | SHA-256 of this response without `report_hash`/`generated_at`, keys sorted |
+
+### `GET /verify`
+Runs `analyze()` twice and reports whether the report is repeatable.
+```json
+{ "repeatable": true, "report_hash": "sha256:..." }
+```
 
 ### `GET /report.pdf`
 The spill report PDF for the last `/analyze` run (Day 10).

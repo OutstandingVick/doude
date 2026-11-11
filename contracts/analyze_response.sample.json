@@ -2,117 +2,193 @@
   "detected": true,
   "pipeline_id": "BYS-TL-01",
   "baseline": {
-    "q_in_m3s": 0.1,
+    "q_in_m3s": 0.09999,
     "q_out_m3s": 0.1,
-    "p_in_bar": 50.0,
-    "p_out_bar": 37.025,
+    "p_in_bar": 49.999,
+    "p_out_bar": 37.026,
     "window_start": "2026-11-01T00:00:00Z",
-    "window_end": "2026-11-03T13:00:00Z"
+    "window_end": "2026-11-02T23:59:00Z"
   },
   "leak": {
-    "detected_at": "2026-11-03T14:06:00Z",
-    "estimated_start": "2026-11-03T14:00:00Z",
-    "shut_in_at": "2026-11-05T10:00:00Z",
-    "duration_hours": 44.0,
-    "location_m": 13320.0,
+    "detected_at": "2026-11-03T14:05:00Z",
+    "estimated_start": "2026-11-03T14:01:00Z",
+    "shut_in_at": "2026-11-05T10:10:00Z",
+    "duration_hours": 44.15,
+    "location_m": 13390.2,
     "location_lonlat": [
-      6.22251,
-      4.82556
+      6.22226,
+      4.82466
     ],
-    "location_uncertainty_m": 350,
+    "location_uncertainty_m": 325,
     "pipeline_type": "trunk_line",
     "terrain": "water"
   },
   "quantification": {
-    "leak_rate_m3s": 0.0288,
-    "leak_rate_orifice_m3s": 0.0293,
-    "volume_m3": 4562.0,
-    "volume_bbl": 28694,
-    "uncertainty_pct": 12,
+    "leak_rate_m3s": 0.02894,
+    "volume_m3": 4591.6,
+    "volume_bbl": 28880,
+    "volume_steady_m3": 4600.5,
+    "methods_agree_pct": 0.19,
+    "equivalent_hole_mm": 25.0,
+    "pressure_at_leak_bar": 39.64,
+    "uncertainty_pct": 5.2,
+    "volume_range_m3": [
+      4352.8,
+      4830.4
+    ],
     "method": "mass_balance",
-    "cross_check": "orifice"
+    "cross_check": "steady_state_average"
   },
   "impact": {
     "type": "water",
     "model": "fay_spreading+drift",
-    "hours_modelled": 24,
-    "slick_area_m2": 353000,
+    "hours_modelled": 6,
+    "volume_spread_m3": 625.1,
+    "slick_radius_m": 507.0,
+    "slick_area_m2": 807237,
+    "center_lonlat": [
+      6.21493,
+      4.80446
+    ],
     "polygon_lonlat": [
       [
-        6.21811,
-        4.82043
+        6.21493,
+        4.80905
       ],
       [
-        6.21894,
-        4.82004
+        6.21583,
+        4.80896
       ],
       [
-        6.22008,
-        4.82015
+        6.21668,
+        4.8087
       ],
       [
-        6.22135,
-        4.82073
+        6.21747,
+        4.80827
       ],
       [
-        6.22257,
-        4.82171
+        6.21817,
+        4.8077
       ],
       [
-        6.22355,
-        4.82294
+        6.21873,
+        4.80701
       ],
       [
-        6.22413,
-        4.82422
+        6.21916,
+        4.80622
       ],
       [
-        6.22424,
-        4.82536
+        6.21942,
+        4.80536
       ],
       [
-        6.22385,
-        4.82619
+        6.2195,
+        4.80446
       ],
       [
-        6.22302,
-        4.82658
+        6.21942,
+        4.80357
       ],
       [
-        6.22188,
-        4.82648
+        6.21916,
+        4.80271
       ],
       [
-        6.2206,
-        4.82589
+        6.21873,
+        4.80191
       ],
       [
-        6.21938,
-        4.82491
+        6.21817,
+        4.80122
       ],
       [
-        6.21841,
-        4.82369
+        6.21747,
+        4.80065
       ],
       [
-        6.21782,
-        4.82241
+        6.21668,
+        4.80023
       ],
       [
-        6.21772,
-        4.82127
+        6.21583,
+        4.79996
       ],
       [
-        6.21811,
-        4.82043
+        6.21493,
+        4.79988
+      ],
+      [
+        6.21404,
+        4.79996
+      ],
+      [
+        6.21319,
+        4.80023
+      ],
+      [
+        6.2124,
+        4.80065
+      ],
+      [
+        6.2117,
+        4.80122
+      ],
+      [
+        6.21113,
+        4.80191
+      ],
+      [
+        6.21071,
+        4.80271
+      ],
+      [
+        6.21045,
+        4.80357
+      ],
+      [
+        6.21036,
+        4.80446
+      ],
+      [
+        6.21045,
+        4.80536
+      ],
+      [
+        6.21071,
+        4.80622
+      ],
+      [
+        6.21113,
+        4.80701
+      ],
+      [
+        6.2117,
+        4.8077
+      ],
+      [
+        6.2124,
+        4.80827
+      ],
+      [
+        6.21319,
+        4.8087
+      ],
+      [
+        6.21404,
+        4.80896
+      ],
+      [
+        6.21493,
+        4.80905
       ]
     ]
   },
   "report": {
     "method_version": "doude-method v0.1",
-    "generated_at": "2026-11-09T12:00:00Z",
-    "input_hash": "sha256:PLACEHOLDER",
-    "report_hash": "sha256:PLACEHOLDER"
-  },
-  "_note": "SAMPLE ONLY. Numbers are placeholders near the truth; field names and types are the contract."
+    "generated_at": "2026-11-11T12:03:03Z",
+    "input_hash": "sha256:3fb8a030cdf0e8c4c1ba5717b0e08fe3c367cb18ff8eb35786e249a9154a2cad",
+    "report_hash": "sha256:c3c01a17613480c20397af9945d4244e0fd8213979095b26a7ff5a517cab959b"
+  }
 }

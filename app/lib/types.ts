@@ -39,12 +39,16 @@ export interface Leak {
 
 export interface Quantification {
   leak_rate_m3s: number;
-  leak_rate_orifice_m3s: number;
   volume_m3: number;
   volume_bbl: number;
+  volume_steady_m3: number;
+  methods_agree_pct: number;
+  equivalent_hole_mm: number;
+  pressure_at_leak_bar: number;
   uncertainty_pct: number;
+  volume_range_m3: [number, number];
   method: "mass_balance";
-  cross_check: "orifice";
+  cross_check: "steady_state_average";
 }
 
 export interface Impact {
@@ -52,7 +56,10 @@ export interface Impact {
   model: string;
   hours_modelled: number;
   slick_area_m2: number;
-  polygon_lonlat: LonLat[]; // closed ring
+  polygon_lonlat: LonLat[]; // closed ring; empty for land
+  volume_spread_m3?: number; // water only
+  slick_radius_m?: number; // water only
+  center_lonlat?: LonLat; // water only
 }
 
 export interface Report {
