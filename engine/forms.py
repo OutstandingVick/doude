@@ -129,3 +129,174 @@ def form_a_data(response, scenario) -> Dict:
             "input_hash": response.get("report", {}).get("input_hash", ""),
         },
     }
+
+
+def _banner() -> List[Flowable]:
+    text = ("DRAFT — verify against the official NOSDRA/NUPRC Form A "
+            "template before submission")
+    t = Table([[_P(text, "banner")]], colWidths=[A4[0] - 36 * mm])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FEF3C7")),
+        ("BOX", (0, 0), (-1, -1), 0.5, AMBER),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    return [t, Spacer(1, 6 * mm)]
+
+
+def _section_heading(text) -> List[Flowable]:
+    rule = Table([[""]], colWidths=[A4[0] - 36 * mm], rowHeights=[1])
+    rule.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), TEAL)]))
+    return [_P(text, "h2"), rule, Spacer(1, 2 * mm)]
+
+
+def _pairs(pairs) -> Table:
+    rows = [[_P(k, "cell"), _P(v, "cell_bold")] for k, v in pairs]
+    t = Table(rows, colWidths=[70 * mm, A4[0] - 36 * mm - 70 * mm])
+    t.setStyle(TableStyle([
+        ("LINEBELOW", (0, 0), (-1, -2), 0.4, RULE),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    return t
+
+
+class BlankLines(Flowable):
+    def __init__(self, n=3, h=9 * mm):
+        super().__init__()
+        self.n = n
+        self.line_h = h
+
+    def wrap(self, availWidth, availHeight):
+        return (availWidth, self.n * self.line_h)
+
+    def draw(self):
+        c = self.canv
+        c.saveState()
+        c.setStrokeColor(RULE)
+        c.setLineWidth(0.5)
+        for i in range(self.n):
+            y = self.height - (i + 1) * self.line_h
+            c.line(0, y, self.width, y)
+        c.restoreState()
+
+
+def _signature_block() -> List[Flowable]:
+    fields = ["Name", "Designation", "Organisation", "Signature", "Date"]
+    rows = [[_P(f, "cell")] for f in fields]
+    t = Table(rows, colWidths=[A4[0] - 36 * mm])
+    t.setStyle(TableStyle([
+        ("LINEBELOW", (0, 0), (-1, -1), 0.5, RULE),
+        ("TOPPADDING", (0, 0), (-1, -1), 16),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    return [t, Spacer(1, 6 * mm)]
+
+
+def build_form_a(response, scenario, out_path) -> Path:
+    """Build the Form A draft PDF and return its path."""
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    data = form_a_data(response, scenario)
+    pipeline = data["pipeline"]
+    incident = data["incident"]
+    location = data["location"]
+    quantity = data["quantity"]
+
+    doc = SimpleDocTemplate(
+        str(out_path),
+        pagesize=A4,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=16 * mm,
+        bottomMargin=16 * mm,
+        title="Doude Form A (Draft)",
+    )
+
+    story: List[Flowable] = []
+    story.append(_P("Oil Spill Notification — Form A (Draft)", "title"))
+    story.append(_P("Reference %s" % data["reference"], "subtitle"))
+    story.append(Spacer(1, 3 * mm))
+    story += _banner()
+
+    story += _section_heading("1 · Facility / asset")
+    story.append(_pairs([
+        ("Pipeline id", pipeline["id"]),
+        ("Pipeline type", pipeline["type"]),
+        ("Fluid", pipeline["fluid"]),
+        ("Length", "%s km" % _fmt_num((pipeline["length_m"] or 0) / 1000.0, 1)),
+        ("Diameter", "%s m" % pipeline["diameter_m"]),
+    ]))
+    story.append(Spacer(1, 4 * mm))
+
+    story += _section_heading("2 · Incident")
+    story.append(_pairs([
+        ("Spill began", _fmt_utc(incident["spill_began_utc"])),
+        ("Detected", _fmt_utc(incident["detected_utc"])),
+        ("Line shut in", _fmt_utc(incident["shut_in_utc"])),
+    ]))
+    story.append(Spacer(1, 1 * mm))
+    deadline = _fmt_utc(incident["deadline_utc"])
+    dl = Table([[_P("Notification deadline", "cell_bold"), _P(deadline, "cell_bold")]],
+               colWidths=[70 * mm, A4[0] - 36 * mm - 70 * mm])
+    dl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FEF3C7")),
+        ("BOX", (0, 0), (-1, -1), 0.5, AMBER),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(dl)
+    story.append(Spacer(1, 4 * mm))
+
+    story += _section_heading("3 · Location")
+    story.append(_pairs([
+        ("KM along pipeline", "%.2f" % ((location["distance_m"] or 0) / 1000.0)),
+        ("Coordinates (lat, lon)", "%.5f, %.5f" % (
+            location["latitude"] or 0, location["longitude"] or 0)),
+        ("Terrain", location["terrain"] or ""),
+        ("Uncertainty", "±%s m" % _fmt_int(location["uncertainty_m"] or 0)),
+    ]))
+    story.append(Spacer(1, 4 * mm))
+
+    story += _section_heading("4 · Estimated quantity")
+    story.append(_pairs([
+        ("Volume", "%s bbl (%s m³)" % (_fmt_int(quantity["volume_bbl"]), _fmt_num(quantity["volume_m3"]))),
+        ("Range", "%s – %s m³" % (
+            _fmt_num(quantity["volume_range_m3"][0]), _fmt_num(quantity["volume_range_m3"][1]))),
+        ("Method", quantity["method"]),
+        ("Uncertainty", "±%s%%" % quantity["uncertainty_pct"]),
+    ]))
+    story.append(Spacer(1, 4 * mm))
+
+    story += _section_heading("5 · Cause")
+    story.append(_P(data["cause"], "body"))
+    story.append(Spacer(1, 2 * mm))
+    story.append(BlankLines(3))
+    story.append(Spacer(1, 4 * mm))
+
+    story += _section_heading("6 · Immediate actions")
+    story.append(_P(data["immediate_actions"], "body"))
+    story.append(Spacer(1, 2 * mm))
+    story.append(BlankLines(2))
+    story.append(Spacer(1, 4 * mm))
+
+    story += _section_heading("7 · Integrity")
+    story.append(_P("Report hash", "cell_bold"))
+    story.append(_P(data["integrity"]["report_hash"], "mono"))
+    story.append(Spacer(1, 1 * mm))
+    story.append(_P("Input hash", "cell_bold"))
+    story.append(_P(data["integrity"]["input_hash"], "mono"))
+    story.append(Spacer(1, 6 * mm))
+
+    story += _section_heading("Signature")
+    story += _signature_block()
+
+    doc.build(story)
+    return out_path
