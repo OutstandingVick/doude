@@ -276,11 +276,97 @@ def _impact_section(response) -> List[Flowable]:
     return out
 
 
+_PHYSICS = [
+    "Darcy-Weisbach with Swamee-Jain friction factor",
+    "Gradient-intersection leak location",
+    "Mass-balance volume",
+    "Orifice-equation hole size",
+    "Fay gravity-viscous spreading",
+]
+
+
+def _method_integrity_section(response) -> List[Flowable]:
+    report = response.get("report") or {}
+    method_version = report.get("method_version", "")
+    input_hash = report.get("input_hash", "")
+    report_hash = report.get("report_hash", "")
+    out = [_P("Method version: %s" % method_version, "body")]
+    out.append(Spacer(1, 1 * mm))
+    out.append(_P("Physics:", "body"))
+    for line in _PHYSICS:
+        out.append(_P("• %s" % line, "body"))
+    out.append(Spacer(1, 4 * mm))
+    out.append(_P("Input hash", "cell_bold"))
+    out.append(_P(input_hash, "mono"))
+    out.append(Spacer(1, 1 * mm))
+    out.append(_P("Report hash", "cell_bold"))
+    out.append(_P(report_hash, "mono"))
+    out.append(Spacer(1, 4 * mm))
+    out.append(_P(
+        "Re-running doude-method v0.1 on the same input file reproduces this "
+        "report_hash exactly. Any change to inputs or results changes the hash.",
+        "small"))
+    out.append(Spacer(1, 6 * mm))
+    return out
+
+
+def _no_spill_section(response) -> List[Flowable]:
+    baseline = response.get("baseline") or {}
+    out = [_P("No spill detected", "h2"), Spacer(1, 2 * mm)]
+    out.append(_P(
+        "The analyzer found no sustained flow imbalance on this pipeline. "
+        "Baseline window: %s → %s." % (
+            _fmt_utc(baseline.get("window_start")), _fmt_utc(baseline.get("window_end"))),
+        "body"))
+    out.append(Spacer(1, 4 * mm))
+    out += _method_integrity_section(response)
+    return out
+
+
+def _make_canvas(report_hash, method_version):
+    hex_part = report_hash[len("sha256:"):] if report_hash.startswith("sha256:") else report_hash
+    short = hex_part[:12]
+
+    class NumberedCanvas(canvas.Canvas):
+        def __init__(self, *args, **kwargs):
+            canvas.Canvas.__init__(self, *args, **kwargs)
+            self._saved_page_states = []
+
+        def showPage(self):
+            self._saved_page_states.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            total = len(self._saved_page_states)
+            for state in self._saved_page_states:
+                self.__dict__.update(state)
+                self._draw_footer(total)
+                canvas.Canvas.showPage(self)
+            canvas.Canvas.save(self)
+
+        def _draw_footer(self, total):
+            self.saveState()
+            page = A4
+            self.setStrokeColor(RULE)
+            self.setLineWidth(0.5)
+            self.line(18 * mm, 14 * mm, page[0] - 18 * mm, 14 * mm)
+            self.setFont("Helvetica", 8)
+            self.setFillColor(MUTED)
+            self.drawString(
+                18 * mm, 9 * mm,
+                "Doude · %s · Page %d of %d" % (method_version, self._pageNumber, total))
+            self.drawRightString(page[0] - 18 * mm, 9 * mm, short)
+            self.restoreState()
+
+    return NumberedCanvas
+
+
 def build_spill_report(response, scenario, out_path) -> Path:
     """Build the spill-report PDF and return its path."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    report = response.get("report") or {}
     doc = SimpleDocTemplate(
         str(out_path),
         pagesize=A4,
@@ -293,7 +379,9 @@ def build_spill_report(response, scenario, out_path) -> Path:
     )
 
     story = _header_band(response, scenario)
-    if response.get("detected"):
+    if not response.get("detected"):
+        story += _no_spill_section(response)
+    else:
         story += _summary_box(response)
         story += _section_heading("Timeline")
         story += _timeline_section(response)
@@ -303,8 +391,11 @@ def build_spill_report(response, scenario, out_path) -> Path:
         story += _location_section(response, scenario)
         story += _section_heading("Impact")
         story += _impact_section(response)
-    else:
-        story += _P("No spill detected", "h2")
+        story += _section_heading("Method & integrity")
+        story += _method_integrity_section(response)
 
-    doc.build(story)
+    doc.build(
+        story,
+        canvasmaker=_make_canvas(report.get("report_hash", ""), report.get("method_version", "")),
+    )
     return out_path
