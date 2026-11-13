@@ -108,3 +108,13 @@ Leaflet) for NOSDRA/NUPRC and operators. Pages: Dashboard (KPIs, spill map, even
 timeline, sensor charts), Spill register, and Spill detail (overview, quantification,
 impact, evidence & hashes, regulatory forms). Reads the engine at
 `NEXT_PUBLIC_DOUDE_API` (default `http://localhost:8000`).
+
+## Phase 7: reports & forms ✅
+- **Spill report PDF** — `GET http://localhost:8000/report.pdf`, or the "Download report"
+  button on the spill detail page.
+- **EGASPIN Form A draft** — `GET http://localhost:8000/forms/a.pdf` (data: `GET /forms/a`),
+  or the "Generate draft" button on the Regulatory forms tab.
+
+The Form A is a **draft** generated from sensor analysis to help the operator file the
+official notification within 24 hours — verify it against the official NOSDRA/NUPRC
+Form A template before submission. It is not the official form.
