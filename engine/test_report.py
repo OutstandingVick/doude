@@ -54,9 +54,10 @@ def test_input_hash(response):
 
 
 def test_pass_criteria(response, scenario):
-    detected = _parse_ts(response["leak"]["estimated_start"])
+    detected = _parse_ts(response["leak"]["detected_at"])
     leak_start = _parse_ts(scenario["timeline"]["leak_start"])
-    assert abs((detected - leak_start).total_seconds()) <= 15 * 60
+    assert detected >= leak_start
+    assert (detected - leak_start).total_seconds() <= 15 * 60
 
     assert abs(response["leak"]["location_m"] - scenario["leak"]["location_m"]) <= 500
 
