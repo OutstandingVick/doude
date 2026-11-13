@@ -89,6 +89,45 @@ export interface VerifyResponse {
   report_hash: string;
 }
 
+export interface FormAData {
+  draft: boolean;
+  reference: string;
+  spill_id: string;
+  pipeline: {
+    id: string;
+    type: string;
+    fluid: string;
+    length_m: number | null;
+    diameter_m: number | null;
+  };
+  incident: {
+    spill_began_utc: string;
+    detected_utc: string;
+    shut_in_utc: string | null;
+    deadline_utc: string;
+  };
+  location: {
+    distance_m: number;
+    latitude: number;
+    longitude: number;
+    terrain: string;
+    uncertainty_m: number;
+  };
+  quantity: {
+    volume_bbl: number;
+    volume_m3: number;
+    volume_range_m3: [number, number];
+    method: string;
+    uncertainty_pct: number;
+  };
+  cause: string;
+  immediate_actions: string;
+  integrity: {
+    report_hash: string;
+    input_hash: string;
+  };
+}
+
 export interface ScenarioResponse {
   name: string;
   method_version: string;

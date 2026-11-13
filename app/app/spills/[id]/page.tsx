@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Download, Loader2 } from "lucide-react";
+import { Clock, Download, Loader2 } from "lucide-react";
 import { useAnalysis } from "@/components/AnalysisProvider";
 import { Topbar } from "@/components/Topbar";
 import { Tabs } from "@/components/Tabs";
@@ -10,14 +10,16 @@ import { StatusPill } from "@/components/StatusPill";
 import { CopyField } from "@/components/CopyField";
 import { Skeleton } from "@/components/Skeleton";
 import { OfflineCard } from "@/components/OfflineCard";
-import { verify } from "@/lib/api";
+import { getFormA, verify } from "@/lib/api";
 import {
   formatBbl,
   formatCoord,
   formatKm,
   formatNumber,
   formatUtc,
+  formatUtcFull,
 } from "@/lib/format";
+import { API_URL } from "@/lib/types";
 import type {
   AnalyzeResponse,
   Quantification,
@@ -36,20 +38,6 @@ const TAB_ITEMS = [
   "Evidence & hashes",
   "Regulatory forms",
 ];
-
-function downloadReport(data: unknown, pipelineId: string) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `doude-report-${pipelineId}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 export default function SpillDetailPage() {
   const { analysis, scenario, loading, error } = useAnalysis();
@@ -99,7 +87,7 @@ export default function SpillDetailPage() {
         </h2>
         <button
           type="button"
-          onClick={() => downloadReport(analysis, analysis.pipeline_id)}
+          onClick={() => window.open(`${API_URL}/report.pdf`, "_blank")}
           className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text hover:bg-surface2"
         >
           <Download className="h-4 w-4" />
@@ -360,36 +348,76 @@ function ImpactTab({ analysis }: { analysis: AnalyzeResponse }) {
 }
 
 function RegulatoryTab() {
-  const forms: {
-    name: string;
-    desc: string;
-    status: string;
-    tone: "success" | "warn" | "neutral";
-  }[] = [
-    { name: "EGASPIN Form A", desc: "Notification · within 24 h", status: "Ready to draft", tone: "success" },
-    { name: "EGASPIN Form B", desc: "Spill response · within 2 weeks", status: "Pending JIV", tone: "warn" },
-    { name: "EGASPIN Form C", desc: "Clean-up report", status: "Pending clean-up", tone: "neutral" },
-  ];
+  const [deadline, setDeadline] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getFormA()
+      .then((data) => {
+        if (!cancelled) setDeadline(data.incident.deadline_utc);
+      })
+      .catch(() => {
+        /* deadline unavailable */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-      {forms.map((form) => (
-        <div key={form.name} className="rounded-xl border border-border bg-surface p-5">
-          <div className="text-sm font-medium text-text">{form.name}</div>
-          <div className="mt-0.5 text-xs text-muted">{form.desc}</div>
-          <div className="mt-4">
-            <StatusPill tone={form.tone} label={form.status} />
+      <div className="rounded-xl border border-border bg-surface p-5">
+        <div className="text-sm font-medium text-text">EGASPIN Form A</div>
+        <div className="mt-0.5 text-xs text-muted">Notification · within 24 h</div>
+        {deadline && (
+          <div className="mt-3 flex items-center gap-1.5 text-xs text-warn">
+            <Clock className="h-3.5 w-3.5" />
+            File by {formatUtcFull(deadline)}
           </div>
-          <button
-            type="button"
-            disabled
-            title="Phase 7"
-            className="mt-4 w-full cursor-not-allowed rounded-lg border border-border px-3 py-2 text-sm text-muted opacity-50"
-          >
-            Generate
-          </button>
+        )}
+        <div className="mt-4">
+          <StatusPill tone="success" label="Draft ready" />
         </div>
-      ))}
+        <button
+          type="button"
+          onClick={() => window.open(`${API_URL}/forms/a.pdf`, "_blank")}
+          className="mt-4 w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-bg transition-colors hover:bg-primary/90"
+        >
+          Generate draft
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-border bg-surface p-5">
+        <div className="text-sm font-medium text-text">EGASPIN Form B</div>
+        <div className="mt-0.5 text-xs text-muted">Spill response · within 2 weeks</div>
+        <div className="mt-4">
+          <StatusPill tone="warn" label="Pending JIV" />
+        </div>
+        <button
+          type="button"
+          disabled
+          title="Requires JIV findings"
+          className="mt-4 w-full cursor-not-allowed rounded-lg border border-border px-3 py-2 text-sm text-muted opacity-50"
+        >
+          Generate
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-border bg-surface p-5">
+        <div className="text-sm font-medium text-text">EGASPIN Form C</div>
+        <div className="mt-0.5 text-xs text-muted">Clean-up report</div>
+        <div className="mt-4">
+          <StatusPill tone="neutral" label="Pending clean-up" />
+        </div>
+        <button
+          type="button"
+          disabled
+          title="Requires clean-up completion"
+          className="mt-4 w-full cursor-not-allowed rounded-lg border border-border px-3 py-2 text-sm text-muted opacity-50"
+        >
+          Generate
+        </button>
+      </div>
     </div>
   );
 }

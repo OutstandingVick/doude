@@ -1,6 +1,7 @@
 import { API_URL } from "./types";
 import type {
   AnalyzeResponse,
+  FormAData,
   HealthResponse,
   ReadingsResponse,
   ScenarioResponse,
@@ -40,4 +41,8 @@ export function runAnalysis(): Promise<AnalyzeResponse> {
 
 export function verify(): Promise<VerifyResponse> {
   return request<VerifyResponse>("/verify");
+}
+
+export function getFormA(): Promise<FormAData> {
+  return request<FormAData>("/forms/a");
 }

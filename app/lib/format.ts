@@ -51,6 +51,20 @@ export function formatUtc(iso: string): string {
   return `${day} ${month}, ${hh}:${mm} UTC`;
 }
 
+/** "2026-11-04T14:05:00Z" -> "04 Nov 2026, 14:05 UTC" */
+export function formatUtcFull(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return iso;
+  }
+  const day = date.getUTCDate().toString().padStart(2, "0");
+  const month = MONTHS[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
+  const hh = date.getUTCHours().toString().padStart(2, "0");
+  const mm = date.getUTCMinutes().toString().padStart(2, "0");
+  return `${day} ${month} ${year}, ${hh}:${mm} UTC`;
+}
+
 /** "sha256:c3c0…ab959b" -> "c3c0…ab959b" */
 export function shortHash(hash: string): string {
   const hex = hash.startsWith("sha256:") ? hash.slice("sha256:".length) : hash;
