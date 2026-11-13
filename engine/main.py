@@ -6,13 +6,15 @@ Run from the repo root:
 """
 import csv
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
-from engine import report
+from engine import forms, locate, pdf_report, report
 
 ROOT = Path(__file__).resolve().parent.parent
 METHOD_VERSION = "doude-method v0.1"
@@ -35,6 +37,12 @@ def _readings_missing():
     return JSONResponse(status_code=404, content={
         "error": "readings_not_found",
         "message": "data/readings.csv does not exist. Run: python engine/generate.py"})
+
+
+def _new_temp_pdf() -> Path:
+    fd, name = tempfile.mkstemp(suffix=".pdf", prefix="doude-")
+    os.close(fd)
+    return Path(name)
 
 
 @app.get("/health")
@@ -81,6 +89,39 @@ def verify():
         and report.verify(first)
     )
     return {"repeatable": repeatable, "report_hash": first["report"]["report_hash"]}
+
+
+@app.get("/report.pdf")
+def report_pdf():
+    if not READINGS.exists():
+        return _readings_missing()
+    response = report.analyze()
+    scenario = locate.load_scenario()
+    path = _new_temp_pdf()
+    pdf_report.build_spill_report(response, scenario, path)
+    return FileResponse(path, media_type="application/pdf",
+                        filename="doude-spill-report-SPL-0001.pdf")
+
+
+@app.get("/forms/a.pdf")
+def form_a_pdf():
+    if not READINGS.exists():
+        return _readings_missing()
+    response = report.analyze()
+    scenario = locate.load_scenario()
+    path = _new_temp_pdf()
+    forms.build_form_a(response, scenario, path)
+    return FileResponse(path, media_type="application/pdf",
+                        filename="doude-form-a-SPL-0001-draft.pdf")
+
+
+@app.get("/forms/a")
+def form_a_json():
+    if not READINGS.exists():
+        return _readings_missing()
+    response = report.analyze()
+    scenario = locate.load_scenario()
+    return forms.form_a_data(response, scenario)
 
 
 @app.exception_handler(FileNotFoundError)
