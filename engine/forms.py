@@ -22,6 +22,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from engine.fmt import round_half_up
+
 SLATE = colors.HexColor("#111827")
 BODY = colors.HexColor("#374151")
 MUTED = colors.HexColor("#6B7280")
@@ -63,11 +65,11 @@ def _fmt_utc(value):
 
 
 def _fmt_int(value):
-    return "{:,}".format(int(round(value)))
+    return "{:,}".format(int(round_half_up(value)))
 
 
 def _fmt_num(value, dp=1):
-    return "{:,.{digits}f}".format(value, digits=dp)
+    return "{:,.{digits}f}".format(round_half_up(value, dp), digits=dp)
 
 
 def _deadline_utc(detected_at):
@@ -257,9 +259,9 @@ def build_form_a(response, scenario, out_path) -> Path:
 
     story += _section_heading("3 · Location")
     story.append(_pairs([
-        ("KM along pipeline", "%.2f" % ((location["distance_m"] or 0) / 1000.0)),
-        ("Coordinates (lat, lon)", "%.5f, %.5f" % (
-            location["latitude"] or 0, location["longitude"] or 0)),
+        ("KM along pipeline", _fmt_num((location["distance_m"] or 0) / 1000.0, 2)),
+        ("Coordinates (lat, lon)", "%s, %s" % (
+            _fmt_num(location["latitude"] or 0, 5), _fmt_num(location["longitude"] or 0, 5))),
         ("Terrain", location["terrain"] or ""),
         ("Uncertainty", "±%s m" % _fmt_int(location["uncertainty_m"] or 0)),
     ]))

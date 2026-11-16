@@ -39,6 +39,12 @@ def test_report_pdf_contains_key_fields(response, scenario, tmp_path):
     assert response["report"]["report_hash"] in text
 
 
+def test_duration_rounds_half_up(response, scenario, tmp_path):
+    out = tmp_path / "report.pdf"
+    pdf_report.build_spill_report(response, scenario, out)
+    assert "44.2 h" in _extract_text(out)
+
+
 def test_no_spill_report(response, scenario, tmp_path):
     no_spill = dict(response)
     no_spill["detected"] = False

@@ -22,6 +22,8 @@ from reportlab.platypus import (
 )
 from reportlab.pdfgen import canvas
 
+from engine.fmt import round_half_up
+
 SLATE = colors.HexColor("#111827")
 BODY = colors.HexColor("#374151")
 MUTED = colors.HexColor("#6B7280")
@@ -65,11 +67,11 @@ def _fmt_utc(value):
 
 
 def _fmt_int(value):
-    return "{:,}".format(int(round(value)))
+    return "{:,}".format(int(round_half_up(value)))
 
 
 def _fmt_num(value, dp=1):
-    return "{:,.{digits}f}".format(value, digits=dp)
+    return "{:,.{digits}f}".format(round_half_up(value, dp), digits=dp)
 
 
 def _minutes_between(a, b):
@@ -121,13 +123,13 @@ def _summary_box(response) -> List[Flowable]:
          "%s bbl" % _fmt_int(quant.get("volume_bbl", 0)),
          "%s m³ · ±%s%%" % (_fmt_num(quant.get("volume_m3", 0)), quant.get("uncertainty_pct", 0))),
         ("LOCATION",
-         "KM %.2f ±%s m" % (leak.get("location_m", 0) / 1000.0, _fmt_int(leak.get("location_uncertainty_m", 0))),
-         "%.5f, %.5f" % (lonlat[0] or 0, lonlat[1] or 0)),
+         "KM %s ±%s m" % (_fmt_num(leak.get("location_m", 0) / 1000.0, 2), _fmt_int(leak.get("location_uncertainty_m", 0))),
+         "%s, %s" % (_fmt_num(lonlat[0] or 0, 5), _fmt_num(lonlat[1] or 0, 5))),
         ("DETECTED",
          _fmt_utc(leak.get("detected_at")),
          "%s min after deviation" % (minutes if minutes is not None else "—")),
         ("RELEASE DURATION",
-         "%.1f h" % leak.get("duration_hours", 0),
+         "%s h" % _fmt_num(leak.get("duration_hours", 0), 1),
          "Shut in %s" % _fmt_utc(leak.get("shut_in_at"))),
     ]
     data = []
@@ -228,7 +230,7 @@ class PipelineDrawing(Flowable):
         c.setFont("Helvetica", 8.5)
         c.setFillColor(SLATE)
         c.drawString(x0, y + 3 * mm, "Inlet (0.0 km)")
-        c.drawRightString(x1, y + 3 * mm, "Outlet (%.1f km)" % (self.length_m / 1000.0))
+        c.drawRightString(x1, y + 3 * mm, "Outlet (%s km)" % _fmt_num(self.length_m / 1000.0, 1))
         frac = self.location_m / self.length_m
         x = x0 + frac * (x1 - x0)
         half = (self.uncertainty_m / self.length_m) * (x1 - x0)
@@ -241,7 +243,7 @@ class PipelineDrawing(Flowable):
         c.line(x, y - 3.5 * mm, x, y + 3.5 * mm)
         c.setFillColor(RED)
         c.setFont("Helvetica-Bold", 8.5)
-        c.drawCentredString(x, y - 6 * mm, "%.1f km" % (self.location_m / 1000.0))
+        c.drawCentredString(x, y - 6 * mm, "%s km" % _fmt_num(self.location_m / 1000.0, 1))
         c.setFillColor(MUTED)
         c.setFont("Helvetica", 8)
         c.drawCentredString(x, y - 11 * mm, "±%s m" % _fmt_int(self.uncertainty_m))
@@ -264,7 +266,7 @@ def _impact_section(response) -> List[Flowable]:
         ("Terrain", str(impact.get("type", ""))),
         ("Model", impact.get("model", "")),
         ("Hours modelled", "%s h" % impact.get("hours_modelled", "")),
-        ("Slick area", "%.2f km²" % area_km2),
+        ("Slick area", "%s km²" % _fmt_num(area_km2, 2)),
         ("Slick radius", "%s m" % _fmt_int(impact.get("slick_radius_m", 0))),
         ("Volume spread", "%s m³" % _fmt_num(impact.get("volume_spread_m3", 0))),
     ]
