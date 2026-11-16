@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Check, ChevronRight, Clock, Download, Loader2, X } from "lucide-react";
+import { Copy, Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Upload, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useAnalysis } from "@/components/AnalysisProvider";
 import { Topbar } from "@/components/Topbar";
@@ -11,7 +11,7 @@ import { StatusPill, type PulseTone } from "@/components/StatusPill";
 import { CopyField } from "@/components/CopyField";
 import { Skeleton } from "@/components/Skeleton";
 import { OfflineCard } from "@/components/OfflineCard";
-import { formAPdfUrl, getSpill, reportPdfUrl, setSpillStatus, verify } from "@/lib/api";
+import { evidenceUrl, formAPdfUrl, getSpill, reportPdfUrl, setSpillStatus, uploadEvidence, verify } from "@/lib/api";
 import {
   formatBbl,
   formatCoord,
@@ -19,9 +19,11 @@ import {
   formatNumber,
   formatUtc,
   formatUtcFull,
+  shortHash,
 } from "@/lib/format";
 import type {
   AnalyzeResponse,
+  EvidenceRecord,
   Quantification,
   ScenarioResponse,
   SpillDetail,
@@ -39,6 +41,8 @@ const TAB_ITEMS = [
   "Impact",
   "Evidence & hashes",
   "Regulatory forms",
+  "Evidence",
+  "Audit log",
 ];
 
 const STATUS: Record<SpillStatus, { label: string; tone: PulseTone }> = {
@@ -260,6 +264,10 @@ export default function SpillDetailPage() {
         {tab === "Regulatory forms" && (
           <RegulatoryTab spillId={spill.id} analysis={analysis} />
         )}
+        {tab === "Evidence" && (
+          <EvidenceUploadTab spillId={spill.id} evidence={spill.evidence} />
+        )}
+        {tab === "Audit log" && <p className="text-sm text-muted">Audit log is built in the next step.</p>}
       </div>
     </div>
   );
@@ -488,6 +496,149 @@ function RegulatoryTab({ spillId, analysis }: { spillId: string; analysis: Analy
           </button>
         </div>
       ))}
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const ALLOWED_EXT = ["jpeg", "jpg", "png", "pdf", "csv"];
+
+function EvidenceUploadTab({ spillId, evidence }: { spillId: string; evidence: EvidenceRecord[] }) {
+  const [items, setItems] = useState<EvidenceRecord[]>(evidence);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  async function handleFile(file: File) {
+    setUploadError(null);
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!ALLOWED_EXT.includes(ext)) {
+      setUploadError("Only JPEG, PNG, PDF or CSV files are allowed.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError("File exceeds 10 MB.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const record = await uploadEvidence(spillId, file);
+      setItems((prev) => [record, ...prev]);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function copyHash(hash: string) {
+    try {
+      await navigator.clipboard.writeText(hash);
+      setCopied(hash);
+      window.setTimeout(() => setCopied(null), 1500);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) handleFile(file);
+        }}
+        className={`flex flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 text-center ${
+          dragOver ? "border-primary bg-primary/5" : "border-border bg-surface"
+        }`}
+      >
+        <Upload className="h-6 w-6 text-muted" />
+        <p className="mt-2 text-sm text-text">Drag and drop evidence here</p>
+        <p className="mt-1 text-xs text-muted">JPEG, PNG, PDF or CSV · up to 10 MB</p>
+        <label className="mt-4 cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-medium text-bg hover:bg-primary/90">
+          {uploading ? "Uploading…" : "Choose file"}
+          <input
+            type="file"
+            accept=".jpeg,.jpg,.png,.pdf,.csv"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFile(file);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        {uploadError && <p className="mt-3 text-xs text-danger">{uploadError}</p>}
+      </div>
+
+      {items.length === 0 ? (
+        <p className="text-sm text-muted">No evidence uploaded yet.</p>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-border text-[11px] uppercase tracking-[0.08em] text-muted">
+              <tr>
+                <th className="px-4 py-3 font-medium">File</th>
+                <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Size</th>
+                <th className="px-4 py-3 font-medium">SHA-256</th>
+                <th className="px-4 py-3 font-medium">Uploaded by</th>
+                <th className="px-4 py-3 font-medium">Time</th>
+                <th className="px-4 py-3 font-medium">Note</th>
+                <th className="px-4 py-3 font-medium" />
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} className="border-b border-border last:border-0 hover:bg-surface2/50">
+                  <td className="px-4 py-3 text-text">{item.filename}</td>
+                  <td className="px-4 py-3 text-muted">{item.content_type.split("/")[1]}</td>
+                  <td className="px-4 py-3 tabular-nums text-muted">{formatBytes(item.size_bytes)}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => copyHash(item.sha256)}
+                      className="flex items-center gap-1 font-mono text-xs text-muted hover:text-text"
+                      title="Copy hash"
+                    >
+                      {copied === item.sha256 ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+                      {shortHash(item.sha256)}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-muted">{item.uploaded_by ?? "—"}</td>
+                  <td className="px-4 py-3 text-muted">{formatUtc(item.uploaded_at)}</td>
+                  <td className="px-4 py-3 text-muted">{item.note ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <a
+                      href={evidenceUrl(spillId, item.id)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
