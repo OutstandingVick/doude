@@ -101,3 +101,36 @@ def init_db(conn: sqlite3.Connection) -> None:
         """
     )
     conn.commit()
+
+
+def _entry_hash(prev_hash: str, spill_id, action: str, actor: str, detail, at: str) -> str:
+    payload = {"spill_id": spill_id, "action": action, "actor": actor, "detail": detail, "at": at}
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256((prev_hash + canonical).encode("utf-8")).hexdigest()
+
+
+def log(conn: sqlite3.Connection, spill_id, action: str, actor: str, detail) -> None:
+    """Append an audit entry, chaining its hash to the previous row."""
+    at = _now()
+    prev = conn.execute("SELECT entry_hash FROM audit_log ORDER BY id DESC LIMIT 1").fetchone()
+    prev_hash = prev["entry_hash"] if prev else "GENESIS"
+    entry = _entry_hash(prev_hash, spill_id, action, actor, detail, at)
+    conn.execute(
+        "INSERT INTO audit_log (spill_id, action, actor, detail_json, at, prev_hash, entry_hash)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (spill_id, action, actor, json.dumps(detail, sort_keys=True), at, prev_hash, entry),
+    )
+    conn.commit()
+
+
+def verify_audit_chain(conn: sqlite3.Connection) -> Dict:
+    """Return ``{ok, entries, broken_at}`` after recomputing the hash chain."""
+    rows = conn.execute("SELECT * FROM audit_log ORDER BY id").fetchall()
+    prev_hash = "GENESIS"
+    for row in rows:
+        detail = json.loads(row["detail_json"]) if row["detail_json"] else None
+        expected = _entry_hash(prev_hash, row["spill_id"], row["action"], row["actor"], detail, row["at"])
+        if expected != row["entry_hash"]:
+            return {"ok": False, "entries": len(rows), "broken_at": row["id"]}
+        prev_hash = row["entry_hash"]
+    return {"ok": True, "entries": len(rows), "broken_at": None}
