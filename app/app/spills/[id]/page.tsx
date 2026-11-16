@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Clock, Download, Loader2 } from "lucide-react";
+import { Check, ChevronRight, Clock, Download, Loader2, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useAnalysis } from "@/components/AnalysisProvider";
 import { Topbar } from "@/components/Topbar";
@@ -11,7 +11,7 @@ import { StatusPill, type PulseTone } from "@/components/StatusPill";
 import { CopyField } from "@/components/CopyField";
 import { Skeleton } from "@/components/Skeleton";
 import { OfflineCard } from "@/components/OfflineCard";
-import { formAPdfUrl, getSpill, reportPdfUrl, verify } from "@/lib/api";
+import { formAPdfUrl, getSpill, reportPdfUrl, setSpillStatus, verify } from "@/lib/api";
 import {
   formatBbl,
   formatCoord,
@@ -48,6 +48,14 @@ const STATUS: Record<SpillStatus, { label: string; tone: PulseTone }> = {
   closed: { label: "Closed", tone: "success" },
 };
 
+const FLOW: SpillStatus[] = ["detected", "jiv", "cleanup", "closed"];
+const NEXT: Record<SpillStatus, SpillStatus | null> = {
+  detected: "jiv",
+  jiv: "cleanup",
+  cleanup: "closed",
+  closed: null,
+};
+
 export default function SpillDetailPage() {
   const params = useParams();
   const spillId = Array.isArray(params?.id) ? params.id[0] : (params?.id as string);
@@ -55,6 +63,9 @@ export default function SpillDetailPage() {
   const [spill, setSpill] = useState<SpillDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(TAB_ITEMS[0]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [advancing, setAdvancing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +80,20 @@ export default function SpillDetailPage() {
       cancelled = true;
     };
   }, [spillId]);
+
+  async function handleAdvance(next: SpillStatus) {
+    setAdvancing(true);
+    try {
+      await setSpillStatus(spillId, next, note || undefined);
+      setSpill({ ...spill!, status: next });
+      setNote("");
+      setDialogOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Status change failed");
+    } finally {
+      setAdvancing(false);
+    }
+  }
 
   if (error) {
     return (
@@ -140,6 +165,86 @@ export default function SpillDetailPage() {
           </div>
         </div>
       </div>
+
+      <div className="mb-5 rounded-xl border border-border bg-surface p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            {FLOW.map((step, i) => {
+              const idx = FLOW.indexOf(spill.status);
+              const done = i < idx;
+              const current = i === idx;
+              return (
+                <div key={step} className="flex items-center gap-2">
+                  {i > 0 && <div className={`h-px w-6 ${i <= idx ? "bg-primary" : "bg-border"}`} />}
+                  <div
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${
+                      current
+                        ? "bg-primary/15 text-primary"
+                        : done
+                        ? "bg-success/10 text-success"
+                        : "text-muted"
+                    }`}
+                  >
+                    {done ? <Check className="h-3 w-3" /> : <span className="h-2 w-2 rounded-full bg-current" />}
+                    {STATUS[step].label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {NEXT[spill.status] && (
+            <button
+              type="button"
+              onClick={() => setDialogOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-bg transition-colors hover:bg-primary/90"
+            >
+              Advance to {STATUS[NEXT[spill.status]!].label}
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {dialogOpen && NEXT[spill.status] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-text">
+                Advance to {STATUS[NEXT[spill.status]!].label}
+              </h3>
+              <button type="button" onClick={() => setDialogOpen(false)} aria-label="Close">
+                <X className="h-4 w-4 text-muted" />
+              </button>
+            </div>
+            <label className="mt-4 block text-xs text-muted">Note</label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-border bg-surface2 px-3 py-2 text-sm text-text outline-none placeholder:text-muted"
+              placeholder="e.g. JIV completed on site"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDialogOpen(false)}
+                className="rounded-lg border border-border px-3 py-2 text-sm text-text hover:bg-surface2"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAdvance(NEXT[spill.status]!)}
+                disabled={advancing}
+                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-bg hover:bg-primary/90 disabled:opacity-60"
+              >
+                {advancing && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Tabs items={TAB_ITEMS} active={tab} onChange={setTab} />
 
