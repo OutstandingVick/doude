@@ -5,4 +5,6 @@ node_modules/
 .next/
 .env*.local
 data/*.csv
+data/*.db
+data/evidence/
 /reports/
