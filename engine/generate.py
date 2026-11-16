@@ -119,12 +119,19 @@ def write_csv(rows: list[dict], path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def main():
-    s = load_scenario()
+def main(argv=None):
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Generate the sensor feed for a scenario.")
+    parser.add_argument("--scenario", default=str(ROOT / "scenario.json"))
+    parser.add_argument("--out", default=str(ROOT / "data" / "readings.csv"))
+    args = parser.parse_args(argv)
+
+    s = load_scenario(Path(args.scenario))
     rows = generate(s)
-    out = ROOT / "data" / "readings.csv"
+    out = Path(args.out)
     digest = write_csv(rows, out)
-    print(f"wrote {len(rows)} rows to {out.relative_to(ROOT)}")
+    print(f"wrote {len(rows)} rows to {out}")
     print(f"sha256:{digest}")
 
 
