@@ -1,127 +1,135 @@
 # Doude
 
-*Izon for "found." Every spill found, measured and recorded.*
+> **Doude** — Izon for "found". *Every spill found, measured and recorded.*
 
-Prototype: detect a pipeline leak from pressure and flow data, locate it, quantify the volume released, estimate its spread, and produce a repeatable spill report.
+Oil spills in the Niger Delta are self-reported by the operators, and dispute
+over the released volume drives most compensation claims. Regulators at NOSDRA
+and NUPRC have no independent way to check those numbers. Doude gives them a
+repeatable, tamper-evident method — measured from pressure and flow alone.
 
-## Repo layout
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+  A[Sensor data] --> B[Baseline]
+  B --> C[Detect]
+  C --> D[Locate]
+  D --> E[Quantify]
+  E --> F[Impact]
+  F --> G[Sealed report]
+  G --> H[Register · Evidence · Audit]
+  H --> I[Regulatory forms]
+```
+
+## The five functions
+
+**Detect** — learns a baseline from the first 48 h of normal operation, then
+flags a leak when the inflow/outflow imbalance exceeds the baseline mean by
+5× the noise for 5 consecutive minutes (in 6 minutes for the harder scenario).
+
+**Locate** — averages pressure and flow over the steady leak period and rewinds
+the pressure drop along the pipe from both ends (gradient intersection), giving
+a distance from the inlet plus an uncertainty band and a map position.
+
+**Quantify** — integrates the minute-by-minute mass balance over the leak window,
+cross-checks it against a steady-state average, back-calculates the equivalent
+hole size, and produces an uncertainty range.
+
+**Impact & sealed report** — models the water-surface slick (Fay spreading plus
+current/wind drift) and seals everything as a signed report whose SHA-256 hash
+only depends on the inputs and results, so it is repeatable.
+
+**Data management** — persists each analysis as a spill record with a strict
+status workflow (detected → jiv → cleanup → closed), evidence uploads, and an
+append-only audit log chained with SHA-256 so any tampering is detectable.
+
+## Results
+
+| Scenario | Metric | Truth | Doude | Result |
+|---|---|---|---|---|
+| 01 — trunk line leak (25 mm @ 13.4 km) | Detection | ≤ 15 min | 5 min | ✅ |
+| | Location | 13,400 m | 13,390 m | ✅ |
+| | Volume | 4,580 m³ | 4,592 m³ | ✅ |
+| 02 — small leak (10 mm @ 6.8 km) | Detection | ≤ 30 min | 6 min | ✅ |
+| | Location | 6,800 m | 6,762 m | ✅ |
+| | Volume | 782 m³ | 786 m³ | ✅ |
+
+## Quick start
+
+```bash
+make setup        # venv + pip install + npm install
+make demo         # data + engine (:8000) + app (:3000)
+```
+
+Then open http://localhost:3000.
+
+## API
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/health` | status + method version |
+| GET | `/scenario` | active scenario (no answers) |
+| GET | `/readings?step=N` | sensor readings |
+| POST | `/analyze` | full chain + persist (returns `spill_id`) |
+| GET | `/verify` | report repeatability |
+| GET | `/pipelines` | list pipelines |
+| GET | `/spills` | list spills |
+| GET | `/spills/{id}` | spill detail |
+| POST | `/spills/{id}/status` | advance status |
+| POST | `/spills/{id}/evidence` | upload evidence |
+| GET | `/spills/{id}/evidence/{eid}` | download evidence |
+| GET | `/spills/{id}/audit` | audit log |
+| GET | `/audit/verify` | audit-chain verification |
+| GET | `/report.pdf?spill_id=` | sealed spill report PDF |
+| GET | `/forms/a.pdf?spill_id=` | EGASPIN Form A draft |
+| GET | `/forms/a` | Form A data (JSON) |
+
+## Project structure
+
 ```
 doude/
-├── scenario.json              # test world + ground truth (generated)
-├── contracts/                 # sample API responses — the agreed shapes
-├── docs/api-contract.md       # data format + endpoints (source of truth)
-├── engine/                    # Python: generator, analysis, FastAPI   → Person A
-│   ├── build_scenario.py
-│   └── main.py
-├── app/                       # Next.js dashboard                      → Person B
-│   └── lib/types.ts
-└── data/                      # readings.csv (generated, not committed)
+├── engine/            # Python: detect, locate, quantify, report, pdf, db, api
+│   ├── detect.py locate.py quantify.py impact.py report.py
+│   ├── pdf_report.py forms.py db.py main.py
+│   ├── build_scenario.py generate.py
+│   └── test_*.py
+├── scenarios/         # scenario_01.json, scenario_02.json
+├── scenario.json      # active scenario (symlink target of the above)
+├── data/              # readings.csv, doude.db, evidence/ (generated, gitignored)
+├── app/               # Next.js + Tailwind dashboard
+├── contracts/ docs/ scripts/
+├── Makefile
+└── .python-version    # 3.9
 ```
 
-## Run
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r engine/requirements.txt
-uvicorn engine.main:app --reload --port 8000   # http://localhost:8000/docs
-```
+## Method (doude-method v0.1)
 
-## Rules
-- `docs/api-contract.md` is the contract. Change it together, and update `contracts/` and `app/lib/types.ts` in the same commit.
-- The app never sees `ground_truth`; `/scenario` strips it.
+- **Friction** — Darcy-Weisbach with the Swamee-Jain friction factor.
+- **Location** — gradient intersection: `x = (P_in − P_out − G_out·L) / (G_in − G_out)`.
+- **Volume** — minute-by-minute mass balance `(Q_in − Q_out − baseline)·Δt`.
+- **Hole size** — inverted orifice equation `Q = Cd·A·√(2P/ρ)`.
+- **Spreading** — Fay gravity-viscous slick radius, drifted by current + wind.
+- **Integrity** — SHA-256 over the sorted canonical JSON; audit log entries are
+  chained (`entry_hash = SHA256(prev_hash + entry)`).
 
-## Test scenario 01 (Day 1)
+## Limitations & roadmap
 
-All values live in `scenario.json`, generated by `python engine/build_scenario.py`. Edit the inputs at the top of that script, then rerun it. Never hand-edit the truth numbers.
+- Synthetic seed-42 data only — no real SCADA feed yet.
+- Steady-state physics (flat pipe, no transient hydraulics).
+- Slick is a 6 h snapshot; land/soil penetration is not modelled.
+- Form A is a draft to check against the official NOSDRA/NUPRC template.
+- Next: real SCADA ingestion, Sentinel-1 satellite cross-check, community
+  reporting, Forms B/C, and multi-tenant auth.
 
-**Pipeline:** BYS-TL-01, a 20 km, 12" (0.30 m) **trunk line** carrying crude (850 kg/m³, 10 cP) through creek terrain near Yenagoa (illustrative route). Pressure and flow sensors at the inlet and outlet, sampled every 60 s.
+## Screenshots
 
-**Normal operation:** 0.10 m³/s (≈54,300 bbl/day), inlet 50.0 bar, outlet 37.0 bar.
+| Dashboard | Spill detail | Evidence | Report |
+|---|---|---|---|
+| ![](docs/screenshots/dashboard.png) | ![](docs/screenshots/spill-detail.png) | ![](docs/screenshots/evidence.png) | ![](docs/screenshots/report.png) |
 
-**Timeline:**
-| Time (UTC) | Event |
-|---|---|
-| 2026-11-01 00:00 | Data starts, normal operation |
-| 2026-11-03 14:00 | Leak opens at **km 13.4** (25 mm hole) into water |
-| 2026-11-05 10:00 | JIV done, line shut in, leak stops (44 h) |
-| 2026-11-06 00:00 | Data ends |
+---
 
-**Ground truth during the leak:**
-| | Value |
-|---|---|
-| Inlet flow / outlet flow | 0.1046 / 0.0757 m³/s |
-| Leak rate | 0.0289 m³/s |
-| Inlet pressure | 49.06 bar (falls from 50.0) |
-| Pressure at leak | 39.6 bar |
-| **Volume released** | **4,580 m³ ≈ 28,810 bbl** |
-
-Drain-down of the isolated section after shut-in is not counted in v0.1.
-
-## Pass criteria
-- Leak detected within **15 minutes** of 14:00 on 3 Nov.
-- Location within **±500 m** of 13,400 m.
-- Volume within **±15%** of 4,580 m³.
-- Same input data gives an identical report and SHA-256 hash.
-
-## Phase 1: sensor data ✅
-```bash
-python engine/generate.py      # writes data/readings.csv (7,201 rows)
-python -m pytest engine -q     # 7 checks
-```
-One reading per minute at both ends. Normal operation with a ±0.5% daily demand swing, the leak opening over 2 min at 14:00 on 3 Nov, then a 10-min shut-in after the JIV, leaving the line at 2 bar static with zero flow. Sensor noise uses a fixed seed (42), so the file is byte-identical on every run:
-`sha256:3fb8a030cdf0e8c4c1ba5717b0e08fe3c367cb18ff8eb35786e249a9154a2cad`
-
-## Physics used (doude-method v0.1)
-- Friction: Darcy-Weisbach, Swamee-Jain friction factor.
-- Leak: orifice equation, Cd = 0.61.
-- Pump: P_in = 60 bar − k·Q², so inlet pressure falls when a leak pulls more flow.
-- Location check: gradient intersection recovers 13,400 m exactly from the true values.
-
-
-## Phase 4: quantification ✅
-```bash
-python engine/quantify.py
-```
-- **Mass balance** (`integrated_volume`): sums `(q_in − q_out − baseline imbalance) × 60` minute by minute over the leak window — the primary method.
-- **Steady-state cross-check** (`steady_volume`): mean leak rate × leak duration.
-- **Orifice back-calculation**: inverts `Q = Cd·A·√(2P/ρ)` to recover the hole size.
-
-Result on the seed-42 readings: **4,592 m³ (≈ 28,880 bbl)** released, **±5.2%** uncertainty, equivalent hole **25.0 mm**.
-
-## Phase 5: impact, report & API ✅
-```bash
-python engine/report.py                       # full chain -> tamper-evident report JSON
-uvicorn engine.main:app --reload --port 8000  # then POST http://localhost:8000/analyze
-```
-- **Impact** (`engine/impact.py`): Fay gravity-viscous slick spreading + current/wind drift.
-- **Report** (`engine/report.py`): repeatable `report_hash` (SHA-256, excludes timestamps), `verify()` for tamper detection.
-- **API**: `/analyze` now returns the real chain; `/verify` confirms repeatability.
-
-On the seed-42 readings: slick area **807,237 m² (≈ 0.81 km²)** after 6 h, report hash
-`sha256:c3c01a17613480c20397af9945d4244e0fd8213979095b26a7ff5a517cab959b`.
-
-## Phase 6: dashboard ✅
-```bash
-cd app && npm install && npm run dev   # http://localhost:3000
-```
-A dark, regulator-grade Next.js dashboard (App Router, TypeScript, Tailwind, recharts,
-Leaflet) for NOSDRA/NUPRC and operators. Pages: Dashboard (KPIs, spill map, event
-timeline, sensor charts), Spill register, and Spill detail (overview, quantification,
-impact, evidence & hashes, regulatory forms). Reads the engine at
-`NEXT_PUBLIC_DOUDE_API` (default `http://localhost:8000`).
-
-## Phase 7: reports & forms ✅
-- **Spill report PDF** — `GET http://localhost:8000/report.pdf`, or the "Download report"
-  button on the spill detail page.
-- **EGASPIN Form A draft** — `GET http://localhost:8000/forms/a.pdf` (data: `GET /forms/a`),
-  or the "Generate draft" button on the Regulatory forms tab.
-
-The Form A is a **draft** generated from sensor analysis to help the operator file the
-official notification within 24 hours — verify it against the official NOSDRA/NUPRC
-Form A template before submission. It is not the official form.
-
-## Phase 7.5: data management ✅
-SQLite (`data/doude.db`, gitignored; override with `DOUDE_DB`) persists everything.
-- **Tables**: `pipelines`, `spills` (status detected→jiv→cleanup→closed), `evidence`, `audit_log`.
-- **Evidence**: JPEG/PNG/PDF/CSV up to 10 MB, stored under `data/evidence/<spill>/<sha256>_<name>`.
-- **Audit**: every action is chained (`entry_hash` = SHA-256 of the previous hash + the entry); `verify_audit_chain` detects tampering.
-- **Endpoints**: `POST /analyze` (persists, returns `spill_id`), `GET /pipelines`, `GET /spills`, `GET/POST /spills/{id}`(+`/status`, `/evidence`, `/audit`), `GET /audit/verify`.
+Python 3.9 (pinned via `.python-version`). 3.10+ also works once `reportlab`
+can be unpinned (currently `<5` because reportlab 5 requires 3.10+).
