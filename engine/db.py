@@ -240,3 +240,23 @@ def get_spill(conn: sqlite3.Connection, spill_id: str) -> Optional[Dict]:
         ).fetchall()
     ]
     return item
+
+
+def set_status(conn: sqlite3.Connection, spill_id: str, new_status: str,
+               actor: Optional[str] = None, note: Optional[str] = None) -> None:
+    """Advance a spill along detected -> jiv -> cleanup -> closed."""
+    actor = actor or "demo-regulator"
+    row = conn.execute("SELECT status FROM spills WHERE id = ?", (spill_id,)).fetchone()
+    if row is None:
+        raise ValueError("unknown spill id")
+    current = row["status"]
+    if new_status not in _STATUS_FLOW.values() and current not in _STATUS_FLOW:
+        raise ValueError("invalid status")
+    if _STATUS_FLOW.get(current) != new_status:
+        raise ValueError("invalid transition from %s to %s" % (current, new_status))
+    conn.execute(
+        "UPDATE spills SET status = ?, updated_at = ? WHERE id = ?",
+        (new_status, _now(), spill_id),
+    )
+    log(conn, spill_id, "status_changed", actor, {"from": current, "to": new_status, "note": note})
+    conn.commit()
