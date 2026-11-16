@@ -28,7 +28,9 @@ export default function RootLayout({
             <Suspense fallback={<div className="w-[248px] shrink-0" />}>
               <Sidebar />
             </Suspense>
-            <div className="min-w-0 flex-1 p-6">{children}</div>
+            <div className="min-w-0 flex-1 p-6">
+              <Suspense fallback={null}>{children}</Suspense>
+            </div>
           </div>
         </AnalysisProvider>
       </body>

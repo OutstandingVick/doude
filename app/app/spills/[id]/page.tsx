@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Clock, Download, Loader2 } from "lucide-react";
+import { useParams } from "next/navigation";
 import { useAnalysis } from "@/components/AnalysisProvider";
 import { Topbar } from "@/components/Topbar";
 import { Tabs } from "@/components/Tabs";
-import { StatusPill } from "@/components/StatusPill";
+import { StatusPill, type PulseTone } from "@/components/StatusPill";
 import { CopyField } from "@/components/CopyField";
 import { Skeleton } from "@/components/Skeleton";
 import { OfflineCard } from "@/components/OfflineCard";
-import { getFormA, verify } from "@/lib/api";
+import { formAPdfUrl, getSpill, reportPdfUrl, verify } from "@/lib/api";
 import {
   formatBbl,
   formatCoord,
@@ -19,11 +20,12 @@ import {
   formatUtc,
   formatUtcFull,
 } from "@/lib/format";
-import { API_URL } from "@/lib/types";
 import type {
   AnalyzeResponse,
   Quantification,
   ScenarioResponse,
+  SpillDetail,
+  SpillStatus,
 } from "@/lib/types";
 
 const SpillMap = dynamic(
@@ -39,28 +41,53 @@ const TAB_ITEMS = [
   "Regulatory forms",
 ];
 
+const STATUS: Record<SpillStatus, { label: string; tone: PulseTone }> = {
+  detected: { label: "Detected", tone: "danger" },
+  jiv: { label: "JIV", tone: "warn" },
+  cleanup: { label: "Clean-up", tone: "info" },
+  closed: { label: "Closed", tone: "success" },
+};
+
 export default function SpillDetailPage() {
-  const { analysis, scenario, loading, error } = useAnalysis();
+  const params = useParams();
+  const spillId = Array.isArray(params?.id) ? params.id[0] : (params?.id as string);
+  const { scenario } = useAnalysis();
+  const [spill, setSpill] = useState<SpillDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(TAB_ITEMS[0]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSpill(spillId)
+      .then((data) => {
+        if (!cancelled) setSpill(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load spill");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [spillId]);
 
   if (error) {
     return (
       <div>
         <Topbar
           title="Spill details"
-          breadcrumb={[{ label: "Spill register", href: "/spills" }, { label: "SPL-0001" }]}
+          breadcrumb={[{ label: "Spill register", href: "/spills" }, { label: spillId }]}
         />
         <OfflineCard message={error} />
       </div>
     );
   }
 
-  if (loading || !analysis) {
+  if (!spill) {
     return (
       <div>
         <Topbar
           title="Spill details"
-          breadcrumb={[{ label: "Spill register", href: "/spills" }, { label: "SPL-0001" }]}
+          breadcrumb={[{ label: "Spill register", href: "/spills" }, { label: spillId }]}
         />
         <div className="space-y-4">
           <Skeleton className="h-24" />
@@ -71,50 +98,45 @@ export default function SpillDetailPage() {
     );
   }
 
+  const analysis = spill.analysis;
+  const st = STATUS[spill.status] ?? { label: spill.status, tone: "neutral" as PulseTone };
+
   return (
     <div>
       <Topbar
         title="Spill details"
         breadcrumb={[
           { label: "Spill register", href: "/spills" },
-          { label: "SPL-0001" },
+          { label: spill.id },
         ]}
       />
 
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-text">
-          SPL-0001 · {analysis.pipeline_id}
+          {spill.id} · {spill.pipeline_id}
         </h2>
-        <button
-          type="button"
-          onClick={() => window.open(`${API_URL}/report.pdf`, "_blank")}
+        <a
+          href={reportPdfUrl(spill.id)}
+          target="_blank"
+          rel="noreferrer"
           className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text hover:bg-surface2"
         >
           <Download className="h-4 w-4" />
           Download report
-        </button>
+        </a>
       </div>
 
       <div className="mb-5 rounded-xl border border-border bg-surface p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <StatusPill tone="warn" label="Contained" />
+            <StatusPill tone={st.tone} label={st.label} />
             <StatusPill tone="danger" label="Major" />
           </div>
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
-            <MetaColumn
-              label="Pipeline type"
-              value={analysis.leak?.pipeline_type === "trunk_line" ? "Trunk line" : "Flow line"}
-            />
-            <MetaColumn
-              label="Detected"
-              value={analysis.leak ? formatUtc(analysis.leak.detected_at) : "—"}
-            />
-            <MetaColumn
-              label="Shut in"
-              value={analysis.leak?.shut_in_at ? formatUtc(analysis.leak.shut_in_at) : "—"}
-            />
-            <MetaColumn label="Last analysis" value={formatUtc(analysis.report.generated_at)} />
+            <MetaColumn label="Pipeline" value={spill.pipeline_id} />
+            <MetaColumn label="Detected" value={spill.detected_at ? formatUtc(spill.detected_at) : "—"} />
+            <MetaColumn label="Shut in" value={spill.shut_in_at ? formatUtc(spill.shut_in_at) : "—"} />
+            <MetaColumn label="Terrain" value={analysis?.leak?.terrain ?? "—"} />
           </div>
         </div>
       </div>
@@ -122,13 +144,17 @@ export default function SpillDetailPage() {
       <Tabs items={TAB_ITEMS} active={tab} onChange={setTab} />
 
       <div className="mt-5">
-        {tab === "Overview" && (
-          <OverviewTab analysis={analysis} scenario={scenario} />
+        {analysis && (
+          <>
+            {tab === "Overview" && <OverviewTab analysis={analysis} scenario={scenario} />}
+            {tab === "Quantification" && <QuantificationTab analysis={analysis} />}
+            {tab === "Impact" && <ImpactTab analysis={analysis} />}
+            {tab === "Evidence & hashes" && <EvidenceTab analysis={analysis} />}
+          </>
         )}
-        {tab === "Quantification" && <QuantificationTab analysis={analysis} />}
-        {tab === "Impact" && <ImpactTab analysis={analysis} />}
-        {tab === "Evidence & hashes" && <EvidenceTab analysis={analysis} />}
-        {tab === "Regulatory forms" && <RegulatoryTab />}
+        {tab === "Regulatory forms" && (
+          <RegulatoryTab spillId={spill.id} analysis={analysis} />
+        )}
       </div>
     </div>
   );
@@ -172,28 +198,12 @@ function OverviewTab({
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div className="rounded-xl border border-border bg-surface p-5">
         <h3 className="mb-3 text-sm font-medium text-muted">Information</h3>
-        <InfoRow
-          label="Pipeline type"
-          value={leak?.pipeline_type === "trunk_line" ? "Trunk line" : "Flow line"}
-        />
+        <InfoRow label="Pipeline type" value={leak?.pipeline_type === "trunk_line" ? "Trunk line" : "Flow line"} />
         <InfoRow label="Terrain" value={leak?.terrain === "water" ? "Water" : "Land"} />
         <InfoRow label="Location" value={leak ? formatKm(leak.location_m) : "—"} />
-        <InfoRow
-          label="Coordinates"
-          value={
-            lon !== undefined && lat !== undefined
-              ? `${formatCoord(lon)}, ${formatCoord(lat)}`
-              : "—"
-          }
-        />
-        <InfoRow
-          label="Hole size (equivalent)"
-          value={quantification ? `${quantification.equivalent_hole_mm} mm` : "—"}
-        />
-        <InfoRow
-          label="Pressure at leak"
-          value={quantification ? `${quantification.pressure_at_leak_bar} bar` : "—"}
-        />
+        <InfoRow label="Coordinates" value={lon !== undefined && lat !== undefined ? `${formatCoord(lon)}, ${formatCoord(lat)}` : "—"} />
+        <InfoRow label="Hole size (equivalent)" value={quantification ? `${quantification.equivalent_hole_mm} mm` : "—"} />
+        <InfoRow label="Pressure at leak" value={quantification ? `${quantification.pressure_at_leak_bar} bar` : "—"} />
       </div>
 
       <div className="rounded-xl border border-border bg-surface p-5">
@@ -202,34 +212,24 @@ function OverviewTab({
           {formatBbl(quantification?.volume_bbl ?? 0)}
         </div>
         <div className="mt-1 text-sm text-muted">bbl released</div>
-
         <div className="mt-6">
           <div className="relative h-1.5 w-full rounded-full bg-surface2">
             <div className="absolute h-full rounded-full bg-warn/30" style={{ left: "0%", width: "100%" }} />
-            <div
-              className="absolute top-1/2 h-3.5 w-2 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-primary"
-              style={{ left: `${estimateFrac * 100}%` }}
-            />
+            <div className="absolute top-1/2 h-3.5 w-2 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-primary" style={{ left: `${estimateFrac * 100}%` }} />
           </div>
           <div className="mt-1.5 flex justify-between text-xs text-muted">
             <span>{formatNumber(low)} m³</span>
             <span>{formatNumber(high)} m³</span>
           </div>
         </div>
-
         <div className="mt-6 space-y-2 border-t border-border pt-4 text-sm">
           <div className="flex justify-between">
             <span className="text-muted">Mass balance</span>
-            <span className="tabular-nums text-text">
-              {formatNumber(quantification?.volume_m3 ?? 0, 1)} m³
-            </span>
+            <span className="tabular-nums text-text">{formatNumber(quantification?.volume_m3 ?? 0, 1)} m³</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted">Steady cross-check</span>
-            <span className="tabular-nums text-text">
-              {formatNumber(quantification?.volume_steady_m3 ?? 0, 1)} m³ (
-              {quantification?.methods_agree_pct ?? 0}%)
-            </span>
+            <span className="tabular-nums text-text">{formatNumber(quantification?.volume_steady_m3 ?? 0, 1)} m³ ({quantification?.methods_agree_pct}%)</span>
           </div>
         </div>
       </div>
@@ -267,10 +267,7 @@ const QUANT_ROWS: { key: keyof Quantification; label: string; unit: string; note
 
 function QuantificationTab({ analysis }: { analysis: AnalyzeResponse }) {
   const q = analysis.quantification;
-  if (!q) {
-    return <p className="text-sm text-muted">No quantification available.</p>;
-  }
-
+  if (!q) return <p className="text-sm text-muted">No quantification available.</p>;
   const quant = q;
 
   function renderValue(key: keyof Quantification): string {
@@ -278,9 +275,7 @@ function QuantificationTab({ analysis }: { analysis: AnalyzeResponse }) {
       return `${formatNumber(quant.volume_range_m3[0])} – ${formatNumber(quant.volume_range_m3[1])}`;
     }
     const value = quant[key];
-    if (key === "method" || key === "cross_check") {
-      return String(value);
-    }
+    if (key === "method" || key === "cross_check") return String(value);
     return typeof value === "number" ? formatNumber(value, key === "leak_rate_m3s" ? 5 : 2) : String(value);
   }
 
@@ -317,7 +312,6 @@ function ImpactTab({ analysis }: { analysis: AnalyzeResponse }) {
     return <p className="text-sm text-muted">Impact was not modelled for this terrain.</p>;
   }
   const areaKm2 = (impact.slick_area_m2 ?? 0) / 1e6;
-
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {[
@@ -328,41 +322,22 @@ function ImpactTab({ analysis }: { analysis: AnalyzeResponse }) {
         { label: "Model", value: "Fay + drift" },
       ].map((stat) => (
         <div key={stat.label} className="rounded-xl border border-border bg-surface p-5">
-          <div className="text-[11px] uppercase tracking-[0.08em] text-muted">
-            {stat.label}
-          </div>
-          <div className="mt-2 text-2xl font-semibold tabular-nums text-text">
-            {stat.value}
-          </div>
+          <div className="text-[11px] uppercase tracking-[0.08em] text-muted">{stat.label}</div>
+          <div className="mt-2 text-2xl font-semibold tabular-nums text-text">{stat.value}</div>
         </div>
       ))}
-
       <div className="col-span-1 rounded-xl border border-border bg-surface p-5 sm:col-span-2 lg:col-span-5">
         <div className="text-sm text-muted">
-          Snapshot {impact.hours_modelled} h after leak start. Full-duration
-          spreading is not modelled in v0.1.
+          Snapshot {impact.hours_modelled} h after leak start. Full-duration spreading is not modelled in v0.1.
         </div>
       </div>
     </div>
   );
 }
 
-function RegulatoryTab() {
-  const [deadline, setDeadline] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    getFormA()
-      .then((data) => {
-        if (!cancelled) setDeadline(data.incident.deadline_utc);
-      })
-      .catch(() => {
-        /* deadline unavailable */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+function RegulatoryTab({ spillId, analysis }: { spillId: string; analysis: AnalyzeResponse | null }) {
+  const detectedAt = analysis?.leak?.detected_at;
+  const deadline = detectedAt ? new Date(Date.parse(detectedAt) + 24 * 3600 * 1000) : null;
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -372,52 +347,42 @@ function RegulatoryTab() {
         {deadline && (
           <div className="mt-3 flex items-center gap-1.5 text-xs text-warn">
             <Clock className="h-3.5 w-3.5" />
-            File by {formatUtcFull(deadline)}
+            File by {formatUtcFull(deadline.toISOString())}
           </div>
         )}
         <div className="mt-4">
           <StatusPill tone="success" label="Draft ready" />
         </div>
-        <button
-          type="button"
-          onClick={() => window.open(`${API_URL}/forms/a.pdf`, "_blank")}
-          className="mt-4 w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-bg transition-colors hover:bg-primary/90"
+        <a
+          href={formAPdfUrl(spillId)}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 block w-full rounded-lg bg-primary px-3 py-2 text-center text-sm font-medium text-bg transition-colors hover:bg-primary/90"
         >
           Generate draft
-        </button>
+        </a>
       </div>
 
-      <div className="rounded-xl border border-border bg-surface p-5">
-        <div className="text-sm font-medium text-text">EGASPIN Form B</div>
-        <div className="mt-0.5 text-xs text-muted">Spill response · within 2 weeks</div>
-        <div className="mt-4">
-          <StatusPill tone="warn" label="Pending JIV" />
+      {[
+        { name: "EGASPIN Form B", desc: "Spill response · within 2 weeks", status: "Pending JIV", tone: "warn" as PulseTone, tip: "Requires JIV findings" },
+        { name: "EGASPIN Form C", desc: "Clean-up report", status: "Pending clean-up", tone: "neutral" as PulseTone, tip: "Requires clean-up completion" },
+      ].map((form) => (
+        <div key={form.name} className="rounded-xl border border-border bg-surface p-5">
+          <div className="text-sm font-medium text-text">{form.name}</div>
+          <div className="mt-0.5 text-xs text-muted">{form.desc}</div>
+          <div className="mt-4">
+            <StatusPill tone={form.tone} label={form.status} />
+          </div>
+          <button
+            type="button"
+            disabled
+            title={form.tip}
+            className="mt-4 w-full cursor-not-allowed rounded-lg border border-border px-3 py-2 text-sm text-muted opacity-50"
+          >
+            Generate
+          </button>
         </div>
-        <button
-          type="button"
-          disabled
-          title="Requires JIV findings"
-          className="mt-4 w-full cursor-not-allowed rounded-lg border border-border px-3 py-2 text-sm text-muted opacity-50"
-        >
-          Generate
-        </button>
-      </div>
-
-      <div className="rounded-xl border border-border bg-surface p-5">
-        <div className="text-sm font-medium text-text">EGASPIN Form C</div>
-        <div className="mt-0.5 text-xs text-muted">Clean-up report</div>
-        <div className="mt-4">
-          <StatusPill tone="neutral" label="Pending clean-up" />
-        </div>
-        <button
-          type="button"
-          disabled
-          title="Requires clean-up completion"
-          className="mt-4 w-full cursor-not-allowed rounded-lg border border-border px-3 py-2 text-sm text-muted opacity-50"
-        >
-          Generate
-        </button>
-      </div>
+      ))}
     </div>
   );
 }
@@ -444,7 +409,6 @@ function EvidenceTab({ analysis }: { analysis: AnalyzeResponse }) {
       <CopyField label="Method version" value={analysis.report.method_version} />
       <CopyField label="Input hash" value={analysis.report.input_hash} />
       <CopyField label="Report hash" value={analysis.report.report_hash} />
-
       <div className="flex items-center gap-3">
         <button
           type="button"

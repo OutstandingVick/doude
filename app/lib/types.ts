@@ -77,6 +77,78 @@ export interface AnalyzeResponse {
   quantification: Quantification | null;
   impact: Impact | null;
   report: Report;
+  spill_id?: string | null;
+}
+
+export type SpillStatus = "detected" | "jiv" | "cleanup" | "closed";
+
+export interface PipelineRecord {
+  id: string;
+  name: string;
+  type: string;
+  length_m: number;
+  inner_diameter_m: number;
+  terrain_at_leak: string;
+  created_at: string;
+}
+
+export interface SpillHeader {
+  id: string;
+  pipeline_id: string;
+  status: SpillStatus;
+  detected_at: string | null;
+  estimated_start: string | null;
+  shut_in_at: string | null;
+  location_m: number | null;
+  location_lon: number | null;
+  location_lat: number | null;
+  volume_m3: number | null;
+  volume_bbl: number | null;
+  uncertainty_pct: number | null;
+  input_hash: string | null;
+  report_hash: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SpillSummary extends SpillHeader {
+  evidence_count: number;
+}
+
+export interface EvidenceRecord {
+  id: number;
+  spill_id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  sha256: string;
+  stored_path: string;
+  note: string | null;
+  uploaded_by: string | null;
+  uploaded_at: string;
+}
+
+export interface AuditEntry {
+  id: number;
+  spill_id: string | null;
+  action: string;
+  actor: string;
+  detail_json: string;
+  at: string;
+  prev_hash: string;
+  entry_hash: string;
+}
+
+export interface AuditVerification {
+  ok: boolean;
+  entries: number;
+  broken_at: number | null;
+}
+
+export interface SpillDetail extends SpillHeader {
+  analysis: AnalyzeResponse | null;
+  evidence: EvidenceRecord[];
+  audit: AuditEntry[];
 }
 
 export interface HealthResponse {
