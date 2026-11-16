@@ -8,19 +8,33 @@ import csv
 import json
 import os
 import tempfile
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
-from engine import forms, locate, pdf_report, report
+from engine import db, forms, locate, pdf_report, report
 
 ROOT = Path(__file__).resolve().parent.parent
 METHOD_VERSION = "doude-method v0.1"
 READINGS = ROOT / "data" / "readings.csv"
 
-app = FastAPI(title="Doude engine", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app):
+    conn = db.connect()
+    try:
+        db.init_db(conn)
+        db.upsert_pipeline_from_scenario(conn, locate.load_scenario())
+    finally:
+        conn.close()
+    yield
+
+
+app = FastAPI(title="Doude engine", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -53,7 +67,6 @@ def health():
 @app.get("/scenario")
 def scenario():
     s = load("scenario.json")
-    # The app must never see the answers.
     s.pop("ground_truth", None)
     s.pop("leak", None)
     return s
@@ -72,10 +85,18 @@ def readings(step: int = Query(10, ge=1)):
 
 
 @app.post("/analyze")
-def analyze():
+def analyze(x_doude_actor: str = Header(default="demo-regulator")):
     if not READINGS.exists():
         return _readings_missing()
-    return report.analyze()
+    response = report.analyze()
+    conn = db.connect()
+    try:
+        spill_id = db.save_analysis(conn, response, x_doude_actor)
+    finally:
+        conn.close()
+    result = dict(response)
+    result["spill_id"] = spill_id
+    return result
 
 
 @app.get("/verify")
@@ -89,6 +110,28 @@ def verify():
         and report.verify(first)
     )
     return {"repeatable": repeatable, "report_hash": first["report"]["report_hash"]}
+
+
+@app.get("/pipelines")
+def pipelines():
+    conn = db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT id, name, type, length_m, inner_diameter_m, terrain_at_leak, created_at"
+            " FROM pipelines ORDER BY id").fetchall()
+    finally:
+        conn.close()
+    return [dict(r) for r in rows]
+
+
+@app.get("/spills")
+def spills(pipeline_id: Optional[str] = None):
+    conn = db.connect()
+    try:
+        result = db.list_spills(conn, pipeline_id)
+    finally:
+        conn.close()
+    return result
 
 
 @app.get("/report.pdf")
