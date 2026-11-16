@@ -12,9 +12,10 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Header, Query
+from fastapi import FastAPI, File, Form, Header, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel
 
 from engine import db, forms, locate, pdf_report, report
 
@@ -43,6 +44,11 @@ app.add_middleware(
 )
 
 
+class StatusUpdate(BaseModel):
+    status: str
+    note: Optional[str] = None
+
+
 def load(rel: str) -> dict:
     return json.loads((ROOT / rel).read_text())
 
@@ -57,6 +63,24 @@ def _new_temp_pdf() -> Path:
     fd, name = tempfile.mkstemp(suffix=".pdf", prefix="doude-")
     os.close(fd)
     return Path(name)
+
+
+def _analysis_for(spill_id: Optional[str]):
+    if not spill_id:
+        return report.analyze()
+    conn = db.connect()
+    try:
+        spill = db.get_spill(conn, spill_id)
+    finally:
+        conn.close()
+    if spill is None:
+        return None
+    return spill.get("analysis")
+
+
+def _spill_not_found():
+    return JSONResponse(status_code=404, content={
+        "error": "spill_not_found", "message": "unknown spill id"})
 
 
 @app.get("/health")
@@ -134,28 +158,116 @@ def spills(pipeline_id: Optional[str] = None):
     return result
 
 
+@app.get("/spills/{spill_id}")
+def get_spill(spill_id: str):
+    conn = db.connect()
+    try:
+        spill = db.get_spill(conn, spill_id)
+    finally:
+        conn.close()
+    if spill is None:
+        return _spill_not_found()
+    return spill
+
+
+@app.post("/spills/{spill_id}/status")
+def set_status(spill_id: str, update: StatusUpdate,
+               x_doude_actor: str = Header(default="demo-regulator")):
+    conn = db.connect()
+    try:
+        db.set_status(conn, spill_id, update.status, x_doude_actor, update.note)
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={
+            "error": "invalid_transition", "message": str(exc)})
+    finally:
+        conn.close()
+    return {"spill_id": spill_id, "status": update.status}
+
+
+@app.post("/spills/{spill_id}/evidence")
+async def add_evidence(spill_id: str, file: UploadFile = File(...),
+                       note: Optional[str] = Form(None),
+                       x_doude_actor: str = Header(default="demo-regulator")):
+    data = await file.read()
+    if len(data) > db.MAX_EVIDENCE_BYTES:
+        return JSONResponse(status_code=413, content={
+            "error": "file_too_large", "message": "evidence exceeds 10 MB"})
+    if (file.content_type or "") not in db.ALLOWED_CONTENT_TYPES:
+        return JSONResponse(status_code=415, content={
+            "error": "unsupported_content_type", "message": "unsupported file type"})
+    conn = db.connect()
+    try:
+        evidence = db.add_evidence(conn, spill_id, file.filename or "file",
+                                   file.content_type or "", data, note, x_doude_actor)
+    finally:
+        conn.close()
+    return evidence
+
+
+@app.get("/spills/{spill_id}/evidence/{evidence_id}")
+def get_evidence(spill_id: str, evidence_id: int):
+    conn = db.connect()
+    try:
+        row = conn.execute(
+            "SELECT * FROM evidence WHERE id = ? AND spill_id = ?",
+            (evidence_id, spill_id)).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return JSONResponse(status_code=404, content={
+            "error": "evidence_not_found", "message": "unknown evidence id"})
+    return FileResponse(row["stored_path"], media_type=row["content_type"],
+                        filename=row["filename"])
+
+
+@app.get("/spills/{spill_id}/audit")
+def get_audit(spill_id: str):
+    conn = db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM audit_log WHERE spill_id = ? ORDER BY id",
+            (spill_id,)).fetchall()
+    finally:
+        conn.close()
+    return [dict(r) for r in rows]
+
+
+@app.get("/audit/verify")
+def audit_verify():
+    conn = db.connect()
+    try:
+        result = db.verify_audit_chain(conn)
+    finally:
+        conn.close()
+    return result
+
+
 @app.get("/report.pdf")
-def report_pdf():
+def report_pdf(spill_id: Optional[str] = None):
     if not READINGS.exists():
         return _readings_missing()
-    response = report.analyze()
+    response = _analysis_for(spill_id)
+    if response is None:
+        return _spill_not_found()
     scenario = locate.load_scenario()
     path = _new_temp_pdf()
     pdf_report.build_spill_report(response, scenario, path)
     return FileResponse(path, media_type="application/pdf",
-                        filename="doude-spill-report-SPL-0001.pdf")
+                        filename="doude-spill-report-%s.pdf" % (spill_id or "SPL-0001"))
 
 
 @app.get("/forms/a.pdf")
-def form_a_pdf():
+def form_a_pdf(spill_id: Optional[str] = None):
     if not READINGS.exists():
         return _readings_missing()
-    response = report.analyze()
+    response = _analysis_for(spill_id)
+    if response is None:
+        return _spill_not_found()
     scenario = locate.load_scenario()
     path = _new_temp_pdf()
     forms.build_form_a(response, scenario, path)
     return FileResponse(path, media_type="application/pdf",
-                        filename="doude-form-a-SPL-0001-draft.pdf")
+                        filename="doude-form-a-%s-draft.pdf" % (spill_id or "SPL-0001"))
 
 
 @app.get("/forms/a")

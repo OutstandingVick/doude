@@ -142,7 +142,10 @@ def upsert_pipeline_from_scenario(conn: sqlite3.Connection, scenario: Dict) -> N
     route_json = json.dumps(pipeline.get("route_lonlat") or [])
     conn.execute(
         "INSERT INTO pipelines (id, name, type, length_m, inner_diameter_m,"
-        " terrain_at_leak, route_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        " terrain_at_leak, route_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        " ON CONFLICT(id) DO UPDATE SET name=excluded.name, type=excluded.type,"
+        " length_m=excluded.length_m, inner_diameter_m=excluded.inner_diameter_m,"
+        " terrain_at_leak=excluded.terrain_at_leak, route_json=excluded.route_json",
         (pipeline.get("id"), scenario.get("name"), pipeline.get("type"),
          pipeline.get("length_m"), pipeline.get("inner_diameter_m"),
          pipeline.get("terrain_at_leak"), route_json, _now()),
