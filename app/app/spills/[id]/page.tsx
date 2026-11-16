@@ -11,7 +11,7 @@ import { StatusPill, type PulseTone } from "@/components/StatusPill";
 import { CopyField } from "@/components/CopyField";
 import { Skeleton } from "@/components/Skeleton";
 import { OfflineCard } from "@/components/OfflineCard";
-import { evidenceUrl, formAPdfUrl, getSpill, reportPdfUrl, setSpillStatus, uploadEvidence, verify } from "@/lib/api";
+import { auditVerify, evidenceUrl, formAPdfUrl, getSpill, reportPdfUrl, setSpillStatus, uploadEvidence, verify } from "@/lib/api";
 import {
   formatBbl,
   formatCoord,
@@ -23,6 +23,8 @@ import {
 } from "@/lib/format";
 import type {
   AnalyzeResponse,
+  AuditEntry,
+  AuditVerification,
   EvidenceRecord,
   Quantification,
   ScenarioResponse,
@@ -267,7 +269,7 @@ export default function SpillDetailPage() {
         {tab === "Evidence" && (
           <EvidenceUploadTab spillId={spill.id} evidence={spill.evidence} />
         )}
-        {tab === "Audit log" && <p className="text-sm text-muted">Audit log is built in the next step.</p>}
+        {tab === "Audit log" && <AuditLogTab audit={spill.audit} />}
       </div>
     </div>
   );
@@ -678,6 +680,97 @@ function EvidenceTab({ analysis }: { analysis: AnalyzeResponse }) {
         {result === true && <StatusPill tone="success" label="Verified — repeatable" />}
         {result === false && <StatusPill tone="danger" label="Mismatch" />}
       </div>
+    </div>
+  );
+}
+const ACTION_LABELS: Record<string, string> = {
+  spill_recorded: "Spill recorded",
+  analysis_rerun_identical: "Analysis re-run (identical)",
+  analysis_no_spill: "Analysis (no spill)",
+  status_changed: "Status changed",
+  evidence_added: "Evidence added",
+};
+
+function summarizeDetail(entry: AuditEntry): string {
+  try {
+    const d = JSON.parse(entry.detail_json ?? "{}");
+    if (entry.action === "status_changed") return `${d.from ?? ""} → ${d.to ?? ""}${d.note ? ` · ${d.note}` : ""}`;
+    if (entry.action === "evidence_added") return `${d.filename ?? ""} · ${shortHash(d.sha256 ?? "")}`;
+    if (entry.action === "analysis_rerun_identical") return shortHash(d.report_hash ?? "");
+    return d.pipeline_id ?? "";
+  } catch {
+    return entry.detail_json ?? "";
+  }
+}
+
+function AuditLogTab({ audit }: { audit: AuditEntry[] }) {
+  const [verifying, setVerifying] = useState(false);
+  const [result, setResult] = useState<AuditVerification | null>(null);
+
+  async function handleVerify() {
+    setVerifying(true);
+    setResult(null);
+    try {
+      setResult(await auditVerify());
+    } catch {
+      setResult({ ok: false, entries: 0, broken_at: null });
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleVerify}
+          disabled={verifying}
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-bg transition-colors hover:bg-primary/90 disabled:opacity-60"
+        >
+          {verifying && <Loader2 className="h-4 w-4 animate-spin" />}
+          Verify chain
+        </button>
+        {result && (
+          result.ok ? (
+            <span className="inline-flex items-center gap-1.5 text-sm text-success">
+              <Check className="h-4 w-4" />
+              Audit chain intact ({result.entries} entries)
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-sm text-danger">
+              <X className="h-4 w-4" />
+              Broken at entry #{result.broken_at}
+            </span>
+          )
+        )}
+      </div>
+
+      {audit.length === 0 ? (
+        <p className="text-sm text-muted">No audit entries for this spill.</p>
+      ) : (
+        <div className="rounded-xl border border-border bg-surface p-4">
+          {[...audit].reverse().map((entry) => (
+            <div key={entry.id} className="flex gap-3 border-b border-border py-3 last:border-0">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface2 text-xs font-semibold text-text">
+                {entry.id}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-text">
+                    {ACTION_LABELS[entry.action] ?? entry.action}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted">{formatUtc(entry.at)}</span>
+                </div>
+                <div className="mt-0.5 text-xs text-muted">
+                  {entry.actor || "demo-regulator"}
+                </div>
+                <div className="mt-1 text-xs text-muted">{summarizeDetail(entry)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
