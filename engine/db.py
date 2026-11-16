@@ -260,3 +260,36 @@ def set_status(conn: sqlite3.Connection, spill_id: str, new_status: str,
     )
     log(conn, spill_id, "status_changed", actor, {"from": current, "to": new_status, "note": note})
     conn.commit()
+
+
+def _safe_filename(filename: str) -> str:
+    base = (filename or "").replace("\\", "/").split("/")[-1]
+    return base or "file"
+
+
+def add_evidence(conn: sqlite3.Connection, spill_id: str, filename: str,
+                 content_type: str, data_bytes: bytes, note: Optional[str] = None,
+                 actor: Optional[str] = None) -> Dict:
+    """Store an evidence file (size/type validated) and log it."""
+    actor = actor or "demo-regulator"
+    if len(data_bytes) > MAX_EVIDENCE_BYTES:
+        raise ValueError("file too large")
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise ValueError("unsupported content type")
+
+    safe = _safe_filename(filename)
+    sha = hashlib.sha256(data_bytes).hexdigest()
+    spill_dir = EVIDENCE_DIR / spill_id
+    spill_dir.mkdir(parents=True, exist_ok=True)
+    stored_path = spill_dir / ("%s_%s" % (sha, safe))
+    stored_path.write_bytes(data_bytes)
+
+    cur = conn.execute(
+        "INSERT INTO evidence (spill_id, filename, content_type, size_bytes, sha256,"
+        " stored_path, note, uploaded_by, uploaded_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (spill_id, safe, content_type, len(data_bytes), sha, str(stored_path),
+         note, actor, _now()),
+    )
+    log(conn, spill_id, "evidence_added", actor, {"sha256": sha, "filename": safe})
+    return dict(conn.execute("SELECT * FROM evidence WHERE id = ?", (cur.lastrowid,)).fetchone())
