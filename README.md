@@ -118,3 +118,10 @@ impact, evidence & hashes, regulatory forms). Reads the engine at
 The Form A is a **draft** generated from sensor analysis to help the operator file the
 official notification within 24 hours — verify it against the official NOSDRA/NUPRC
 Form A template before submission. It is not the official form.
+
+## Phase 7.5: data management ✅
+SQLite (`data/doude.db`, gitignored; override with `DOUDE_DB`) persists everything.
+- **Tables**: `pipelines`, `spills` (status detected→jiv→cleanup→closed), `evidence`, `audit_log`.
+- **Evidence**: JPEG/PNG/PDF/CSV up to 10 MB, stored under `data/evidence/<spill>/<sha256>_<name>`.
+- **Audit**: every action is chained (`entry_hash` = SHA-256 of the previous hash + the entry); `verify_audit_chain` detects tampering.
+- **Endpoints**: `POST /analyze` (persists, returns `spill_id`), `GET /pipelines`, `GET /spills`, `GET/POST /spills/{id}`(+`/status`, `/evidence`, `/audit`), `GET /audit/verify`.
