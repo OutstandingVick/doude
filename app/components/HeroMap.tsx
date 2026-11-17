@@ -246,10 +246,10 @@ export interface HeroMapProps {
   scenario: ScenarioResponse;
   spillId?: string | null;
   onRunAnalysis?: () => Promise<AnalyzeResponse | null>;
-  height?: number;
+  height?: number | string;
 }
 
-export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = 560 }: HeroMapProps) {
+export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = "100%" }: HeroMapProps) {
   const [basemap, setBasemap] = useState<Basemap>("satellite");
   const [expanded, setExpanded] = useState(false);
   const [map, setMap] = useState<L.Map | null>(null);
