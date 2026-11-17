@@ -40,7 +40,7 @@ const TAB_ITEMS = [
   "Overview",
   "Quantification",
   "Impact",
-  "Evidence & hashes",
+  "Integrity",
   "Regulatory forms",
   "Evidence",
   "Audit log",
@@ -154,7 +154,7 @@ export default function SpillDetailPage() {
             <MetaColumn label="Pipeline" value={spill.pipeline_id} />
             <MetaColumn label="Detected" value={spill.detected_at ? formatUtc(spill.detected_at) : "—"} />
             <MetaColumn label="Shut in" value={spill.shut_in_at ? formatUtc(spill.shut_in_at) : "—"} />
-            <MetaColumn label="Terrain" value={analysis?.leak?.terrain ?? "—"} />
+            <MetaColumn label="Terrain" value={analysis?.leak?.terrain === "water" ? "Water" : analysis?.leak?.terrain ? "Land" : "—"} />
           </div>
         </div>
       </div>
@@ -247,7 +247,7 @@ export default function SpillDetailPage() {
             {tab === "Overview" && <OverviewTab analysis={analysis} scenario={scenario} />}
             {tab === "Quantification" && <QuantificationTab analysis={analysis} />}
             {tab === "Impact" && <ImpactTab analysis={analysis} />}
-            {tab === "Evidence & hashes" && <EvidenceTab analysis={analysis} />}
+            {tab === "Integrity" && <EvidenceTab analysis={analysis} />}
           </>
         )}
         {tab === "Regulatory forms" && (
