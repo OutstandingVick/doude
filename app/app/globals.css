@@ -36,6 +36,72 @@ body {
   height: 100%;
 }
 
+@layer components {
+  .card {
+    border-radius: 20px;
+    background: var(--color-surface);
+    padding: 20px;
+    border: 1px solid var(--color-border-soft);
+  }
+
+  .card-title {
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 10px;
+    background: var(--color-surface3);
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--color-text);
+  }
+
+  .pill-active {
+    background: var(--color-text);
+    color: #ffffff;
+  }
+
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--color-surface3);
+    padding: 0 16px;
+    font-size: 14px;
+  }
+
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    background: #f1f1ec;
+    color: var(--color-text);
+  }
+
+  .expand-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 9999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
+}
+
 body {
   background: linear-gradient(135deg, #f4f6f0 0%, #eef6da 100%);
   background-attachment: fixed;
