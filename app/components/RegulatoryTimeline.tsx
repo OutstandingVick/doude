@@ -1,14 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import { Calendar, Eye, Pencil } from "lucide-react";
 import { ExpandButton } from "@/components/ExpandButton";
 import { formAPdfUrl } from "@/lib/api";
-import type { AnalyzeResponse } from "@/lib/types";
+import type { AnalyzeResponse, SpillStatus } from "@/lib/types";
 
 export interface RegulatoryTimelineProps {
   analysis: AnalyzeResponse;
   spillId: string;
+  status: SpillStatus;
 }
+
+const STATUS_INDEX: Record<SpillStatus, number> = {
+  detected: 0,
+  jiv: 1,
+  cleanup: 2,
+  closed: 3,
+};
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -33,18 +42,20 @@ interface Row {
   href?: string;
 }
 
-export function RegulatoryTimeline({ analysis, spillId }: RegulatoryTimelineProps) {
+export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTimelineProps) {
+  const [now] = useState(() => Date.now());
   const leak = analysis.leak;
   if (!leak) return null;
 
   const detected = leak.detected_at;
   const shutIn = leak.shut_in_at ?? detected;
+  const statusIndex = STATUS_INDEX[status];
 
   const rows: Row[] = [
     { date: detected, title: "Leak detected", subtitle: `${spillId} · auto-recorded`, pill: "Done", done: true },
     { date: addDays(detected, 1), title: "Form A due (24 h)", subtitle: "Notification to NOSDRA", pill: "Draft ready", current: true, href: formAPdfUrl(spillId) },
     { date: shutIn, title: "Line shut in", subtitle: "After JIV · trunk line", pill: "Done", done: true },
-    { date: addDays(shutIn, 1), title: "JIV inspection", subtitle: "Joint inspection of the breach", pill: "Upcoming" },
+    { date: addDays(shutIn, 1), title: "JIV inspection", subtitle: "Joint inspection of the breach", pill: statusIndex >= 1 ? "Done" : "Upcoming", done: statusIndex >= 1 },
     { date: addDays(detected, 14), title: "Form B (2 weeks)", subtitle: "Spill response report", pill: "Upcoming" },
     { date: addDays(detected, 30), title: "Form C (clean-up)", subtitle: "Clean-up completion", pill: "Upcoming" },
   ];
@@ -71,6 +82,7 @@ export function RegulatoryTimeline({ analysis, spillId }: RegulatoryTimelineProp
       <div className="mt-2 flex flex-col gap-2.5 overflow-y-auto">
         {rows.map((row, i) => {
           const { weekday, day } = dayInfo(row.date);
+          const overdue = !row.done && new Date(row.date).getTime() < now;
           return (
             <div
               key={i}
@@ -78,7 +90,13 @@ export function RegulatoryTimeline({ analysis, spillId }: RegulatoryTimelineProp
             >
               <div className="w-9 shrink-0 text-center">
                 <div className="text-xs text-faint">{weekday}</div>
-                <div className="text-[22px] font-medium leading-none text-text">{day}</div>
+                <div
+                  className={`text-[22px] font-medium leading-none ${
+                    overdue ? "text-danger" : "text-text"
+                  }`}
+                >
+                  {day}
+                </div>
               </div>
 
               <div className="flex shrink-0 -space-x-1.5">
