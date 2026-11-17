@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Bell, Settings } from "lucide-react";
+import { getSpills } from "@/lib/api";
 
 const NAV = [
   { href: "/", label: "Dashboard", exact: true },
@@ -16,6 +18,22 @@ const USER_INITIALS = "VO";
 
 export function TopNav() {
   const pathname = usePathname();
+  const [hasDetected, setHasDetected] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSpills()
+      .then((spills) => {
+        if (cancelled) return;
+        setHasDetected(spills[0]?.status === "detected");
+      })
+      .catch(() => {
+        /* offline: no dot */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function isActive(item: (typeof NAV)[number]) {
     return item.exact ? pathname === item.href : pathname.startsWith(item.href);
@@ -52,8 +70,14 @@ export function TopNav() {
           <button type="button" aria-label="Settings" className="icon-btn">
             <Settings className="h-[18px] w-[18px]" />
           </button>
-          <button type="button" aria-label="Notifications" className="icon-btn">
+          <button type="button" aria-label="Notifications" className="icon-btn relative">
             <Bell className="h-[18px] w-[18px]" />
+            {hasDetected && (
+              <span
+                aria-label="New detected spill"
+                className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-danger"
+              />
+            )}
           </button>
           <div
             aria-label="Account"
