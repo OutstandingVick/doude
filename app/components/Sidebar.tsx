@@ -24,6 +24,13 @@ const NAV = [
   { href: "/integrations", label: "Integrations", icon: Plug, exact: false },
 ];
 
+const USER_NAME = "Victor Ogbonna";
+const USER_HANDLE = "Regulator view";
+const USER_INITIALS = USER_NAME.split(" ")
+  .map((word) => word[0])
+  .join("")
+  .toUpperCase();
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -107,11 +114,11 @@ export function Sidebar() {
           <div className="my-3 h-px bg-border" />
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-surface2 text-xs font-semibold text-text">
-              VO
+              {USER_INITIALS}
             </div>
             <div className="min-w-0">
-              <div className="truncate text-sm text-text">Victor Ogbonna</div>
-              <div className="truncate text-xs text-muted">Regulator view</div>
+              <div className="truncate text-sm text-text">{USER_NAME}</div>
+              <div className="truncate text-xs text-muted">{USER_HANDLE}</div>
             </div>
           </div>
         </div>

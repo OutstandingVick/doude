@@ -111,11 +111,18 @@ export default function Dashboard() {
           label="Leak location"
           value={leak ? formatKm(leak.location_m) : "—"}
           sub={
-            leak
-              ? `±${leak.location_uncertainty_m} m · ${formatCoord(
-                  leak.location_lonlat[0],
-                )}, ${formatCoord(leak.location_lonlat[1])}`
-              : "—"
+            leak ? (
+              <div>
+                <span className="block whitespace-nowrap">
+                  ±{leak.location_uncertainty_m} m
+                </span>
+                <span className="block whitespace-nowrap text-xs">
+                  {formatCoord(leak.location_lonlat[0])}, {formatCoord(leak.location_lonlat[1])}
+                </span>
+              </div>
+            ) : (
+              "—"
+            )
           }
           visual={
             leak ? (

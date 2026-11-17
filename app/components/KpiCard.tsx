@@ -9,7 +9,7 @@ export function KpiCard({
 }: {
   label: string;
   value: ReactNode;
-  sub: string;
+  sub: ReactNode;
   badge?: ReactNode;
   visual?: ReactNode;
 }) {
