@@ -31,6 +31,14 @@ function FitBounds({ points }: { points: [number, number][] }) {
   return null;
 }
 
+function MapRefCapture({ onMap }: { onMap: (map: L.Map) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    onMap(map);
+  }, [map, onMap]);
+  return null;
+}
+
 function MapLayers({
   analysis,
   scenario,
@@ -194,8 +202,29 @@ export interface HeroMapProps {
 export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapProps) {
   const [basemap, setBasemap] = useState<Basemap>("satellite");
   const [expanded, setExpanded] = useState(false);
+  const [map, setMap] = useState<L.Map | null>(null);
+  const [focusedOnLeak, setFocusedOnLeak] = useState(false);
   const routeLatLng = scenario.pipeline.route_lonlat.map(toLatLng);
   const center = routeLatLng[0] ?? [4.8, 6.2];
+
+  const leakBounds = useMemo(() => {
+    const pts: [number, number][] = [];
+    if (analysis.leak) pts.push(toLatLng(analysis.leak.location_lonlat));
+    if (analysis.impact?.polygon_lonlat?.length) {
+      pts.push(...analysis.impact.polygon_lonlat.map(toLatLng));
+    }
+    return pts;
+  }, [analysis]);
+
+  function toggleZoom() {
+    if (!map) return;
+    const next = !focusedOnLeak;
+    setFocusedOnLeak(next);
+    const pts = next ? leakBounds : routeLatLng;
+    if (pts.length > 0) {
+      map.flyToBounds(L.latLngBounds(pts), { padding: [40, 40], duration: 0.6 });
+    }
+  }
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -207,6 +236,7 @@ export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapPr
         className="z-0"
       >
         <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} />
+        <MapRefCapture onMap={setMap} />
       </MapContainer>
 
       <div className="absolute right-4 top-4 z-20 flex flex-col gap-2">
@@ -227,6 +257,15 @@ export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapPr
           <Maximize2 className="h-[18px] w-[18px]" />
         </button>
       </div>
+
+      <button
+        type="button"
+        aria-label="Zoom to leak"
+        onClick={toggleZoom}
+        className="absolute bottom-4 left-4 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-white text-text shadow-md transition-colors hover:bg-surface2"
+      >
+        <Crosshair className="h-6 w-6" />
+      </button>
 
       {analysis.leak && analysis.quantification && (
         <GlassInfoCard analysis={analysis} spillId={spillId} />
