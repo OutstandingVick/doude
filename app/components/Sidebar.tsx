@@ -2,17 +2,41 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import {
+  FileText,
+  FolderOpen,
+  LayoutDashboard,
+  ListChecks,
+  ShieldCheck,
+} from "lucide-react";
+import { getSpills } from "@/lib/api";
 
 const NAV = [
-  { href: "/", label: "Dashboard", exact: true },
-  { href: "/spills", label: "Spills", exact: true },
-  { href: "/evidence", label: "Evidence", exact: false },
-  { href: "/reports", label: "Reports", exact: false },
-  { href: "/compliance", label: "Compliance", exact: false },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/spills", label: "Spills", icon: ListChecks, exact: false },
+  { href: "/evidence", label: "Evidence", icon: FolderOpen, exact: false },
+  { href: "/reports", label: "Reports", icon: FileText, exact: false },
+  { href: "/compliance", label: "Compliance", icon: ShieldCheck, exact: false },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [spillCount, setSpillCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSpills()
+      .then((spills) => {
+        if (!cancelled) setSpillCount(spills.length);
+      })
+      .catch(() => {
+        /* offline: no badge */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function isActive(item: (typeof NAV)[number]) {
     return item.exact ? pathname === item.href : pathname.startsWith(item.href);
@@ -32,16 +56,32 @@ export function Sidebar() {
       </div>
 
       <nav aria-label="Main" className="mt-7 flex flex-col gap-2">
-        {NAV.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={isActive(item) ? "page" : undefined}
-            className="flex h-11 items-center rounded-[12px] bg-surface3 px-4 text-sm font-medium text-text transition-colors hover:bg-border"
-          >
-            {item.label}
-          </Link>
-        ))}
+        {NAV.map((item) => {
+          const active = isActive(item);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={`flex h-11 items-center gap-3 rounded-[12px] px-4 text-sm font-medium transition-colors ${
+                active
+                  ? "bg-text text-white"
+                  : "bg-surface3 text-text hover:bg-[#e6e6e0]"
+              }`}
+            >
+              <Icon
+                className={`h-[18px] w-[18px] shrink-0 ${active ? "text-white" : "text-muted"}`}
+              />
+              <span>{item.label}</span>
+              {item.href === "/spills" && spillCount > 0 && (
+                <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-medium text-text">
+                  {spillCount}
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </nav>
     </aside>
   );
