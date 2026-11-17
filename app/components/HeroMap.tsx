@@ -1,11 +1,11 @@
 "use client";
 
-import { MapContainer, CircleMarker, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Circle, CircleMarker, Marker, Polyline, Polygon, TileLayer, useMap } from "react-leaflet";
 import { useEffect, useMemo } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { toLatLng } from "@/lib/format";
-import type { ScenarioResponse } from "@/lib/types";
+import type { AnalyzeResponse, ScenarioResponse } from "@/lib/types";
 
 // Keyless Esri World Imagery (satellite) basemap.
 const SATELLITE_TILES =
@@ -27,13 +27,21 @@ function FitBounds({ points }: { points: [number, number][] }) {
 }
 
 export interface HeroMapProps {
+  analysis: AnalyzeResponse;
   scenario: ScenarioResponse;
   height?: number;
 }
 
-export function HeroMap({ scenario, height = 560 }: HeroMapProps) {
+export function HeroMap({ analysis, scenario, height = 560 }: HeroMapProps) {
   const routeLatLng = scenario.pipeline.route_lonlat.map(toLatLng);
   const center = routeLatLng[0] ?? [4.8, 6.2];
+
+  const leak = analysis.leak ? toLatLng(analysis.leak.location_lonlat) : null;
+  const uncertaintyM = analysis.leak?.location_uncertainty_m;
+  const slickPolygon =
+    analysis.impact?.polygon_lonlat?.length
+      ? analysis.impact.polygon_lonlat.map(toLatLng)
+      : null;
 
   const inletIcon = useMemo(
     () =>
@@ -59,6 +67,17 @@ export function HeroMap({ scenario, height = 560 }: HeroMapProps) {
 
   // Interior route vertices get circular nodes; the ends get flow markers.
   const interior: [number, number][] = routeLatLng.slice(1, -1);
+
+  const leakIcon = useMemo(
+    () =>
+      L.divIcon({
+        className: "",
+        html: '<div class="leak-pulse"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      }),
+    [],
+  );
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -99,6 +118,36 @@ export function HeroMap({ scenario, height = 560 }: HeroMapProps) {
             <Marker position={routeLatLng[0]} icon={inletIcon} />
             <Marker position={routeLatLng[routeLatLng.length - 1]} icon={outletIcon} />
           </>
+        )}
+
+        {leak && (
+          <>
+            {typeof uncertaintyM === "number" && uncertaintyM > 0 && (
+              <Circle
+                center={leak}
+                radius={uncertaintyM}
+                pathOptions={{
+                  color: "#F5A524",
+                  dashArray: "6 4",
+                  fill: false,
+                  weight: 2,
+                }}
+              />
+            )}
+            <Marker position={leak} icon={leakIcon} />
+          </>
+        )}
+
+        {slickPolygon && (
+          <Polygon
+            positions={slickPolygon}
+            pathOptions={{
+              color: "#E5484D",
+              weight: 1,
+              fillColor: "#E5484D",
+              fillOpacity: 0.3,
+            }}
+          />
         )}
       </MapContainer>
     </div>

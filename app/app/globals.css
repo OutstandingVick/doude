@@ -150,8 +150,8 @@ body {
 
 .leak-pulse {
   position: relative;
-  width: 14px;
-  height: 14px;
+  width: 100%;
+  height: 100%;
 }
 
 .leak-pulse::before {
