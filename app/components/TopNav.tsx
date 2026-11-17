@@ -52,7 +52,7 @@ function SearchField() {
 
 export function TopNav() {
   const pathname = usePathname();
-  const { analysis, scenario } = useAnalysis();
+  const { analysis, scenario, error } = useAnalysis();
   const [hasDetected, setHasDetected] = useState(false);
 
   useEffect(() => {
@@ -129,14 +129,21 @@ export function TopNav() {
         <div className="flex items-center gap-2">
           <InfoChip label="Detected" value={formatDateTime(analysis?.leak?.detected_at)} />
           <InfoChip label="Shut in" value={formatDateTime(analysis?.leak?.shut_in_at)} />
-          <InfoChip
-            label="Pipeline"
-            value={
-              scenario?.pipeline
-                ? `${scenario.pipeline.id} / ${scenario.pipeline.type === "trunk_line" ? "Trunk line" : "Flow line"}`
-                : "—"
-            }
-          />
+          {error ? (
+            <div className="chip border border-danger/30 bg-danger/10">
+              <span className="h-2 w-2 rounded-full bg-danger" />
+              <span className="font-medium text-danger">Engine offline</span>
+            </div>
+          ) : (
+            <InfoChip
+              label="Pipeline"
+              value={
+                scenario?.pipeline
+                  ? `${scenario.pipeline.id} / ${scenario.pipeline.type === "trunk_line" ? "Trunk line" : "Flow line"}`
+                  : "—"
+              }
+            />
+          )}
         </div>
       </div>
     </header>
