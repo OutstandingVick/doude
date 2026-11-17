@@ -95,3 +95,9 @@ def test_audit_verify(client):
     response = client.get("/audit/verify")
     assert response.status_code == 200
     assert response.json()["ok"] is True
+
+
+def test_cors_allows_local_origin_on_any_port(client):
+    response = client.get("/health", headers={"Origin": "http://localhost:3002"})
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:3002"
