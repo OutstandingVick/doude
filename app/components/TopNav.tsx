@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, Settings } from "lucide-react";
+import { Bell, Search, SlidersHorizontal, Settings } from "lucide-react";
 import { getSpills } from "@/lib/api";
 
 const NAV = [
@@ -15,6 +15,38 @@ const NAV = [
 ];
 
 const USER_INITIALS = "VO";
+
+function SearchField() {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const q = query.trim();
+    router.push(q ? `/spills?q=${encodeURIComponent(q)}` : "/spills");
+  }
+
+  return (
+    <form onSubmit={submit} className="relative w-[420px] max-w-full">
+      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search spills, pipelines or KM…"
+        aria-label="Search spills, pipelines or KM"
+        className="h-11 w-full rounded-[12px] bg-surface3 pl-10 pr-11 text-sm text-text outline-none placeholder:text-faint focus:ring-2 focus:ring-primary"
+      />
+      <button
+        type="button"
+        aria-label="Filter"
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-text"
+      >
+        <SlidersHorizontal className="h-4 w-4" />
+      </button>
+    </form>
+  );
+}
 
 export function TopNav() {
   const pathname = usePathname();
@@ -86,6 +118,10 @@ export function TopNav() {
             {USER_INITIALS}
           </div>
         </div>
+      </div>
+
+      <div className="mt-6 flex items-center justify-between gap-4">
+        <SearchField />
       </div>
     </header>
   );
