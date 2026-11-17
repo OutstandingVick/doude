@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
+import { Info } from "lucide-react";
 import { ExpandButton } from "@/components/ExpandButton";
-import { evidenceUrl } from "@/lib/api";
-import type { AnalyzeResponse, EvidenceRecord, ScenarioResponse } from "@/lib/types";
+import { evidenceUrl, verify } from "@/lib/api";
+import { formatKm, roundHalfUp, toLatLng } from "@/lib/format";
+import type { AnalyzeResponse, EvidenceRecord, LonLat, ScenarioResponse } from "@/lib/types";
 
 export interface SpillSnapshotProps {
   analysis: AnalyzeResponse;
@@ -58,7 +61,71 @@ export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSn
         {scenario.pipeline.type === "trunk_line" ? "Trunk line" : "Flow line"} · {terrain} ·{" "}
         {leak ? "Detected" : "—"}
       </div>
+
+      {leak && (
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <Stat value={formatKm(leak.location_m)} label="Location" />
+          <Stat value={`±${leak.location_uncertainty_m} m`} label="Uncertainty" />
+          <Stat value={`${roundHalfUp(leak.duration_hours, 1)} h`} label="Duration" />
+        </div>
+      )}
+
+      <div className="mt-auto flex items-end justify-between gap-3 pt-4">
+        <div className="flex items-center gap-2">
+          <VerifyPill />
+          <button type="button" aria-label="More info" className="icon-btn h-8 w-8">
+            <Info className="h-4 w-4" />
+          </button>
+        </div>
+        <MiniMap route={scenario.pipeline.route_lonlat} leak={leak?.location_lonlat} />
+      </div>
     </div>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div>
+      <div className="text-[15px] font-medium tabular-nums text-text">{value}</div>
+      <div className="text-[11px] text-faint">{label}</div>
+    </div>
+  );
+}
+
+function VerifyPill() {
+  const [state, setState] = useState<"idle" | "ok" | "bad">("idle");
+
+  async function handleVerify() {
+    try {
+      const v = await verify();
+      setState(v.repeatable ? "ok" : "bad");
+    } catch {
+      setState("bad");
+    }
+  }
+
+  if (state === "ok") {
+    return (
+      <span className="pill bg-primary font-medium text-text">
+        Verified ✓
+      </span>
+    );
+  }
+  if (state === "bad") {
+    return (
+      <span className="pill bg-danger/15 font-medium text-danger">
+        Mismatch
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleVerify}
+      className="pill bg-primary font-medium text-text transition-colors hover:bg-primary-dark"
+    >
+      Verify
+    </button>
   );
 }
 
@@ -83,5 +150,53 @@ function Tile({
         <div className="h-full w-full bg-surface2" />
       )}
     </div>
+  );
+}
+
+function MiniMap({ route, leak }: { route: LonLat[]; leak?: LonLat | null }) {
+  const pts = route.map(toLatLng);
+  const lats = pts.map((p) => p[0]);
+  const lons = pts.map((p) => p[1]);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons);
+  const maxLon = Math.max(...lons);
+  const W = 110;
+  const H = 70;
+  const pad = 10;
+  const project = (lat: number, lon: number): [number, number] => {
+    const x = ((lon - minLon) / (maxLon - minLon || 1)) * (W - 2 * pad) + pad;
+    const y = H - pad - ((lat - minLat) / (maxLat - minLat || 1)) * (H - 2 * pad);
+    return [x, y];
+  };
+  const line = pts.map((p) => project(p[0], p[1]).join(",")).join(" ");
+  const [lx, ly] = leak ? project(leak[1], leak[0]) : [0, 0];
+
+  return (
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      className="shrink-0 overflow-hidden rounded-[12px] border border-border-soft"
+      role="img"
+      aria-label="Pipeline mini-map"
+    >
+      <rect x={0} y={0} width={W} height={H} fill="#F1F4EC" />
+      <rect x={0} y={0} width={W} height={H} fill="url(#mm)" opacity={0.5} />
+      <defs>
+        <linearGradient id="mm" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#DDEBE0" />
+          <stop offset="100%" stopColor="#EAF3D8" />
+        </linearGradient>
+      </defs>
+      <polyline points={line} fill="none" stroke="#111111" strokeWidth={2} opacity={0.7} />
+      {pts.length > 0 && (
+        <>
+          <circle cx={project(pts[0][0], pts[0][1])[0]} cy={project(pts[0][0], pts[0][1])[1]} r={2.5} fill="#111111" />
+          <circle cx={project(pts[pts.length - 1][0], pts[pts.length - 1][1])[0]} cy={project(pts[pts.length - 1][0], pts[pts.length - 1][1])[1]} r={2.5} fill="#111111" />
+        </>
+      )}
+      {leak && <circle cx={lx} cy={ly} r={3.5} fill="#E5484D" stroke="#fff" strokeWidth={1} />}
+    </svg>
   );
 }
