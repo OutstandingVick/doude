@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Bell, Search, SlidersHorizontal, Settings } from "lucide-react";
 import { getSpills } from "@/lib/api";
+import { useAnalysis } from "@/components/AnalysisProvider";
+import { formatDateTime } from "@/lib/format";
 
 const NAV = [
   { href: "/", label: "Dashboard", exact: true },
@@ -50,6 +52,7 @@ function SearchField() {
 
 export function TopNav() {
   const pathname = usePathname();
+  const { analysis, scenario } = useAnalysis();
   const [hasDetected, setHasDetected] = useState(false);
 
   useEffect(() => {
@@ -122,7 +125,29 @@ export function TopNav() {
 
       <div className="mt-6 flex items-center justify-between gap-4">
         <SearchField />
+
+        <div className="flex items-center gap-2">
+          <InfoChip label="Detected" value={formatDateTime(analysis?.leak?.detected_at)} />
+          <InfoChip label="Shut in" value={formatDateTime(analysis?.leak?.shut_in_at)} />
+          <InfoChip
+            label="Pipeline"
+            value={
+              scenario?.pipeline
+                ? `${scenario.pipeline.id} / ${scenario.pipeline.type === "trunk_line" ? "Trunk line" : "Flow line"}`
+                : "—"
+            }
+          />
+        </div>
       </div>
     </header>
+  );
+}
+
+function InfoChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="chip">
+      <span className="text-faint">{label}:</span>
+      <span className="font-medium text-text">{value}</span>
+    </div>
   );
 }
