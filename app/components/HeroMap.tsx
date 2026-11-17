@@ -5,7 +5,19 @@ import { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
-import { Clock, Crosshair, Droplets, Layers, Maximize2, Waves, X } from "lucide-react";
+import {
+  Clock,
+  Crosshair,
+  Droplets,
+  Gauge,
+  Layers,
+  Maximize2,
+  Play,
+  Route,
+  Target,
+  Waves,
+  X,
+} from "lucide-react";
 import { formatBbl, formatKm, formatNumber, roundHalfUp, toLatLng } from "@/lib/format";
 import type { AnalyzeResponse, ScenarioResponse } from "@/lib/types";
 
@@ -20,6 +32,13 @@ const DARK_ATTRIBUTION = "Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap
 const ROUTE_COLOR = "#ffffff";
 const RING = "#111111";
 type Basemap = "satellite" | "dark";
+
+interface LayerState {
+  pipeline: boolean;
+  leak: boolean;
+  slick: boolean;
+  sensors: boolean;
+}
 
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
@@ -43,10 +62,12 @@ function MapLayers({
   analysis,
   scenario,
   basemap,
+  layers,
 }: {
   analysis: AnalyzeResponse;
   scenario: ScenarioResponse;
   basemap: Basemap;
+  layers: LayerState;
 }) {
   const routeLatLng = scenario.pipeline.route_lonlat.map(toLatLng);
   const leak = analysis.leak ? toLatLng(analysis.leak.location_lonlat) : null;
@@ -97,27 +118,28 @@ function MapLayers({
       />
       <FitBounds points={routeLatLng} />
 
-      {routeLatLng.length > 1 && (
+      {layers.pipeline && routeLatLng.length > 1 && (
         <Polyline positions={routeLatLng} pathOptions={{ color: ROUTE_COLOR, weight: 3, opacity: 0.95 }} />
       )}
 
-      {interior.map((pt, i) => (
-        <CircleMarker
-          key={i}
-          center={pt}
-          radius={7}
-          pathOptions={{ color: RING, opacity: 0.4, weight: 3, fillColor: ROUTE_COLOR, fillOpacity: 1 }}
-        />
-      ))}
+      {layers.pipeline &&
+        interior.map((pt, i) => (
+          <CircleMarker
+            key={i}
+            center={pt}
+            radius={7}
+            pathOptions={{ color: RING, opacity: 0.4, weight: 3, fillColor: ROUTE_COLOR, fillOpacity: 1 }}
+          />
+        ))}
 
-      {routeLatLng.length > 0 && (
+      {layers.sensors && routeLatLng.length > 0 && (
         <>
           <Marker position={routeLatLng[0]} icon={inletIcon} />
           <Marker position={routeLatLng[routeLatLng.length - 1]} icon={outletIcon} />
         </>
       )}
 
-      {leak && (
+      {layers.leak && leak && (
         <>
           {typeof uncertaintyM === "number" && uncertaintyM > 0 && (
             <Circle
@@ -130,7 +152,7 @@ function MapLayers({
         </>
       )}
 
-      {slickPolygon && (
+      {layers.slick && slickPolygon && (
         <Polygon
           positions={slickPolygon}
           pathOptions={{ color: "#E5484D", weight: 1, fillColor: "#E5484D", fillOpacity: 0.3 }}
@@ -192,18 +214,51 @@ function GlassInfoCard({ analysis, spillId }: { analysis: AnalyzeResponse; spill
   );
 }
 
+function ToolbarButton({
+  active,
+  onClick,
+  label,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={`flex h-12 w-12 items-center justify-center rounded-[10px] transition-colors ${
+        active ? "bg-primary text-text" : "text-text hover:bg-surface2"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export interface HeroMapProps {
   analysis: AnalyzeResponse;
   scenario: ScenarioResponse;
   spillId?: string | null;
+  onRunAnalysis?: () => void;
   height?: number;
 }
 
-export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapProps) {
+export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = 560 }: HeroMapProps) {
   const [basemap, setBasemap] = useState<Basemap>("satellite");
   const [expanded, setExpanded] = useState(false);
   const [map, setMap] = useState<L.Map | null>(null);
   const [focusedOnLeak, setFocusedOnLeak] = useState(false);
+  const [layers, setLayers] = useState<LayerState>({
+    pipeline: true,
+    leak: true,
+    slick: true,
+    sensors: true,
+  });
   const routeLatLng = scenario.pipeline.route_lonlat.map(toLatLng);
   const center = routeLatLng[0] ?? [4.8, 6.2];
 
@@ -215,6 +270,10 @@ export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapPr
     }
     return pts;
   }, [analysis]);
+
+  function toggleLayer(key: keyof LayerState) {
+    setLayers((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   function toggleZoom() {
     if (!map) return;
@@ -235,7 +294,7 @@ export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapPr
         style={{ height, width: "100%" }}
         className="z-0"
       >
-        <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} />
+        <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} layers={layers} />
         <MapRefCapture onMap={setMap} />
       </MapContainer>
 
@@ -267,6 +326,24 @@ export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapPr
         <Crosshair className="h-6 w-6" />
       </button>
 
+      <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-[14px] bg-white p-1.5 shadow-md">
+        <ToolbarButton active={layers.pipeline} onClick={() => toggleLayer("pipeline")} label="Pipeline">
+          <Route className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton active={layers.leak} onClick={() => toggleLayer("leak")} label="Leak and uncertainty">
+          <Target className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton active={layers.slick} onClick={() => toggleLayer("slick")} label="Slick">
+          <Droplets className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton active={layers.sensors} onClick={() => toggleLayer("sensors")} label="Sensors">
+          <Gauge className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton active={false} onClick={() => onRunAnalysis?.()} label="Run analysis">
+          <Play className="h-5 w-5" />
+        </ToolbarButton>
+      </div>
+
       {analysis.leak && analysis.quantification && (
         <GlassInfoCard analysis={analysis} spillId={spillId} />
       )}
@@ -279,7 +356,7 @@ export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapPr
             zoomControl={false}
             style={{ height: "100vh", width: "100vw" }}
           >
-            <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} />
+            <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} layers={layers} />
           </MapContainer>
           <button
             type="button"
