@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { Copy, Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Upload, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useAnalysis } from "@/components/AnalysisProvider";
-import { Topbar } from "@/components/Topbar";
 import { Tabs } from "@/components/Tabs";
 import { StatusPill, type PulseTone } from "@/components/StatusPill";
 import { CopyField } from "@/components/CopyField";
@@ -104,11 +103,10 @@ export default function SpillDetailPage() {
   if (error) {
     return (
       <div>
-        <Topbar
-          title="Spill details"
-          breadcrumb={[{ label: "Spill register", href: "/spills" }, { label: spillId }]}
-        />
-        <OfflineCard message={error} />
+        <h1 className="mb-5 text-2xl font-semibold text-text">Spill details</h1>
+        <div className="card">
+          <OfflineCard message={error} />
+        </div>
       </div>
     );
   }
@@ -116,10 +114,7 @@ export default function SpillDetailPage() {
   if (!spill) {
     return (
       <div>
-        <Topbar
-          title="Spill details"
-          breadcrumb={[{ label: "Spill register", href: "/spills" }, { label: spillId }]}
-        />
+        <h1 className="mb-5 text-2xl font-semibold text-text">Spill details</h1>
         <div className="space-y-4">
           <Skeleton className="h-24" />
           <Skeleton className="h-10 w-72" />
@@ -134,23 +129,15 @@ export default function SpillDetailPage() {
 
   return (
     <div>
-      <Topbar
-        title="Spill details"
-        breadcrumb={[
-          { label: "Spill register", href: "/spills" },
-          { label: spill.id },
-        ]}
-      />
-
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-text">
+        <h1 className="text-2xl font-semibold text-text">
           {spill.id} · {spill.pipeline_id}
-        </h2>
+        </h1>
         <a
           href={reportPdfUrl(spill.id)}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text hover:bg-surface2"
+          className="flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3 py-2 text-sm text-text hover:bg-surface2"
         >
           <Download className="h-4 w-4" />
           Download report
@@ -202,7 +189,7 @@ export default function SpillDetailPage() {
             <button
               type="button"
               onClick={() => setDialogOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-bg transition-colors hover:bg-primary/90"
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-primary/90"
             >
               Advance to {STATUS[NEXT[spill.status]!].label}
               <ChevronRight className="h-4 w-4" />
@@ -242,7 +229,7 @@ export default function SpillDetailPage() {
                 type="button"
                 onClick={() => handleAdvance(NEXT[spill.status]!)}
                 disabled={advancing}
-                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-bg hover:bg-primary/90 disabled:opacity-60"
+                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-text hover:bg-primary/90 disabled:opacity-60"
               >
                 {advancing && <Loader2 className="h-4 w-4 animate-spin" />}
                 Confirm
@@ -473,7 +460,7 @@ function RegulatoryTab({ spillId, analysis }: { spillId: string; analysis: Analy
           href={formAPdfUrl(spillId)}
           target="_blank"
           rel="noreferrer"
-          className="mt-4 block w-full rounded-lg bg-primary px-3 py-2 text-center text-sm font-medium text-bg transition-colors hover:bg-primary/90"
+          className="mt-4 block w-full rounded-lg bg-primary px-3 py-2 text-center text-sm font-medium text-text transition-colors hover:bg-primary/90"
         >
           Generate draft
         </a>
@@ -571,7 +558,7 @@ function EvidenceUploadTab({ spillId, evidence }: { spillId: string; evidence: E
         <Upload className="h-6 w-6 text-muted" />
         <p className="mt-2 text-sm text-text">Drag and drop evidence here</p>
         <p className="mt-1 text-xs text-muted">JPEG, PNG, PDF or CSV · up to 10 MB</p>
-        <label className="mt-4 cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-medium text-bg hover:bg-primary/90">
+        <label className="mt-4 cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-medium text-text hover:bg-primary/90">
           {uploading ? "Uploading…" : "Choose file"}
           <input
             type="file"
@@ -673,7 +660,7 @@ function EvidenceTab({ analysis }: { analysis: AnalyzeResponse }) {
           type="button"
           onClick={handleVerify}
           disabled={verifying}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-bg transition-colors hover:bg-primary/90 disabled:opacity-60"
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-primary/90 disabled:opacity-60"
         >
           {verifying && <Loader2 className="h-4 w-4 animate-spin" />}
           Verify now
@@ -727,7 +714,7 @@ function AuditLogTab({ audit }: { audit: AuditEntry[] }) {
           type="button"
           onClick={handleVerify}
           disabled={verifying}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-bg transition-colors hover:bg-primary/90 disabled:opacity-60"
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-primary/90 disabled:opacity-60"
         >
           {verifying && <Loader2 className="h-4 w-4 animate-spin" />}
           Verify chain
