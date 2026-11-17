@@ -9,9 +9,21 @@ export interface LeakRateChartProps {
   readings: ReadingsResponse | null;
 }
 
-export function LeakRateChart({ analysis }: LeakRateChartProps) {
+export function LeakRateChart({ analysis, readings }: LeakRateChartProps) {
   const q = analysis.quantification;
   const [low, high] = q?.volume_range_m3 ?? [0, 0];
+
+  const data = readings?.readings ?? [];
+  const values = data.map((r) => r.q_in_m3s - r.q_out_m3s);
+  const maxValue = Math.max(0.0001, ...values);
+
+  const W = 400;
+  const H = 190;
+  const plotTop = 12;
+  const plotBottom = 155;
+  const plotH = plotBottom - plotTop;
+  const barSlot = data.length > 0 ? W / data.length : 0;
+  const barWidth = barSlot * 0.65;
 
   return (
     <div className="card flex h-full flex-col">
@@ -36,7 +48,26 @@ export function LeakRateChart({ analysis }: LeakRateChartProps) {
       </div>
 
       <div className="mt-4 flex-1">
-        {/* chart rendered in a later step */}
+        {data.length > 0 && (
+          <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full" preserveAspectRatio="none">
+            {values.map((v, i) => {
+              const h = (v / maxValue) * plotH;
+              const x = i * barSlot + (barSlot - barWidth) / 2;
+              const y = plotBottom - h;
+              return (
+                <rect
+                  key={i}
+                  x={x}
+                  y={y}
+                  width={barWidth}
+                  height={Math.max(h, 0.5)}
+                  rx={1}
+                  fill="#D9D9D4"
+                />
+              );
+            })}
+          </svg>
+        )}
       </div>
     </div>
   );
