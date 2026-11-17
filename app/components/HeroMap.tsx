@@ -4,7 +4,9 @@ import { MapContainer, Circle, CircleMarker, Marker, Polyline, Polygon, TileLaye
 import { useEffect, useMemo } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { toLatLng } from "@/lib/format";
+import Link from "next/link";
+import { Clock, Crosshair, Droplets, Maximize2, Waves } from "lucide-react";
+import { formatBbl, formatKm, formatNumber, roundHalfUp, toLatLng } from "@/lib/format";
 import type { AnalyzeResponse, ScenarioResponse } from "@/lib/types";
 
 // Keyless Esri World Imagery (satellite) basemap.
@@ -29,10 +31,11 @@ function FitBounds({ points }: { points: [number, number][] }) {
 export interface HeroMapProps {
   analysis: AnalyzeResponse;
   scenario: ScenarioResponse;
+  spillId?: string | null;
   height?: number;
 }
 
-export function HeroMap({ analysis, scenario, height = 560 }: HeroMapProps) {
+export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapProps) {
   const routeLatLng = scenario.pipeline.route_lonlat.map(toLatLng);
   const center = routeLatLng[0] ?? [4.8, 6.2];
 
@@ -150,6 +153,71 @@ export function HeroMap({ analysis, scenario, height = 560 }: HeroMapProps) {
           />
         )}
       </MapContainer>
+
+      {analysis.leak && analysis.quantification && (
+        <GlassInfoCard
+          analysis={analysis}
+          spillId={spillId}
+        />
+      )}
+    </div>
+  );
+}
+
+function GlassInfoCard({
+  analysis,
+  spillId,
+}: {
+  analysis: AnalyzeResponse;
+  spillId?: string | null;
+}) {
+  const leak = analysis.leak!;
+  const q = analysis.quantification!;
+  const impact = analysis.impact;
+  const detectMinutes = Math.round(
+    (Date.parse(leak.detected_at) - Date.parse(leak.estimated_start)) / 60000,
+  );
+  const slickKm2 = impact ? (impact.slick_area_m2 ?? 0) / 1e6 : 0;
+
+  return (
+    <div className="absolute left-4 top-1/2 z-20 w-[220px] -translate-y-1/2 rounded-[12px] bg-white/78 p-3 shadow-sm backdrop-blur-md">
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-[13px] font-semibold text-text">
+          {formatKm(leak.location_m)} · {analysis.pipeline_id}
+        </div>
+        <button type="button" aria-label="Expand map" className="text-faint hover:text-text">
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="mt-2 space-y-1.5">
+        <div className="flex items-center gap-1.5 text-xs text-muted">
+          <Droplets className="h-3 w-3 shrink-0 text-faint" />
+          {formatBbl(q.volume_bbl)} bbl released (±{q.uncertainty_pct}%)
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted">
+          <Clock className="h-3 w-3 shrink-0 text-faint" />
+          Detected {detectMinutes} min after deviation
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted">
+          <Crosshair className="h-3 w-3 shrink-0 text-faint" />
+          Hole ≈ {roundHalfUp(q.equivalent_hole_mm, 0)} mm · {formatNumber(q.pressure_at_leak_bar, 2)} bar at breach
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted">
+          <Waves className="h-3 w-3 shrink-0 text-faint" />
+          Slick {formatNumber(slickKm2, 2)} km² after {impact?.hours_modelled ?? 6} h ({leak.terrain})
+        </div>
+      </div>
+
+      {spillId && (
+        <Link
+          href={`/spills/${spillId}`}
+          aria-label="Open spill detail"
+          className="mt-2 flex h-7 w-7 items-center justify-center rounded-full bg-text text-sm text-white transition-colors hover:bg-text/80"
+        >
+          +
+        </Link>
+      )}
     </div>
   );
 }
