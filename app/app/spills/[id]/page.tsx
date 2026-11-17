@@ -359,6 +359,7 @@ function OverviewTab({
             polygon={analysis.impact?.polygon_lonlat}
             center={analysis.impact?.center_lonlat}
             height={300}
+            defaultView="leak"
           />
         </div>
       </div>
