@@ -17,6 +17,15 @@ import "leaflet/dist/leaflet.css";
 import { toLatLng } from "@/lib/format";
 import type { LonLat } from "@/lib/types";
 
+// Keyless Esri World Dark Gray basemap (no API key required).
+// Swap these two constants to change the basemap.
+const BASE_TILES =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+const LABEL_TILES =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}";
+const TILE_ATTRIBUTION =
+  "Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors";
+
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
@@ -74,10 +83,8 @@ export function SpillMap({
       style={{ height, width: "100%" }}
       className="z-0"
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-      />
+      <TileLayer attribution={TILE_ATTRIBUTION} url={BASE_TILES} />
+      <TileLayer url={LABEL_TILES} />
       <FitBounds points={bounds} />
 
       {routeLatLng.length > 1 && (
