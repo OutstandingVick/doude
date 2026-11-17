@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Bell, Settings } from "lucide-react";
 
 const NAV = [
   { href: "/", label: "Dashboard", exact: true },
@@ -10,6 +11,8 @@ const NAV = [
   { href: "/reports", label: "Reports", exact: false },
   { href: "/compliance", label: "Compliance", exact: false },
 ];
+
+const USER_INITIALS = "VO";
 
 export function TopNav() {
   const pathname = usePathname();
@@ -44,6 +47,21 @@ export function TopNav() {
             </Link>
           ))}
         </nav>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" aria-label="Settings" className="icon-btn">
+            <Settings className="h-[18px] w-[18px]" />
+          </button>
+          <button type="button" aria-label="Notifications" className="icon-btn">
+            <Bell className="h-[18px] w-[18px]" />
+          </button>
+          <div
+            aria-label="Account"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-green text-sm font-semibold text-white"
+          >
+            {USER_INITIALS}
+          </div>
+        </div>
       </div>
     </header>
   );
