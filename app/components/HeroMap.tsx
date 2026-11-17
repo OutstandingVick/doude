@@ -1,10 +1,11 @@
 "use client";
 
 import { MapContainer, Circle, CircleMarker, Marker, Polyline, Polygon, TileLayer, useMap } from "react-leaflet";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
+import { getSpills } from "@/lib/api";
 import {
   Clock,
   Crosshair,
@@ -244,7 +245,7 @@ export interface HeroMapProps {
   analysis: AnalyzeResponse;
   scenario: ScenarioResponse;
   spillId?: string | null;
-  onRunAnalysis?: () => void;
+  onRunAnalysis?: () => Promise<AnalyzeResponse | null>;
   height?: number;
 }
 
@@ -284,6 +285,33 @@ export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = 5
       map.flyToBounds(L.latLngBounds(pts), { padding: [40, 40], duration: 0.6 });
     }
   }
+
+  const [toast, setToast] = useState<string | null>(null);
+
+  const handleRunAnalysis = useCallback(async () => {
+    try {
+      const before = new Set((await getSpills()).map((s) => s.id));
+      const result = await onRunAnalysis?.();
+      const id = result?.spill_id;
+      if (id) {
+        const isNew = !before.has(id);
+        setToast(isNew ? `Saved as ${id}` : `Identical result — already recorded as ${id}`);
+      }
+    } catch {
+      setToast("Analysis failed — is the engine running?");
+    }
+    window.setTimeout(() => setToast(null), 4000);
+  }, [onRunAnalysis]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "r" || e.key === "R") handleRunAnalysis();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleRunAnalysis]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -339,10 +367,16 @@ export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = 5
         <ToolbarButton active={layers.sensors} onClick={() => toggleLayer("sensors")} label="Sensors">
           <Gauge className="h-5 w-5" />
         </ToolbarButton>
-        <ToolbarButton active={false} onClick={() => onRunAnalysis?.()} label="Run analysis">
+        <ToolbarButton active={false} onClick={handleRunAnalysis} label="Run analysis">
           <Play className="h-5 w-5" />
         </ToolbarButton>
       </div>
+
+      {toast && (
+        <div className="absolute bottom-20 left-1/2 z-30 -translate-x-1/2 rounded-[10px] bg-text px-4 py-2 text-sm text-white shadow-lg">
+          {toast}
+        </div>
+      )}
 
       {analysis.leak && analysis.quantification && (
         <GlassInfoCard analysis={analysis} spillId={spillId} />

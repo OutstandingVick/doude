@@ -32,7 +32,7 @@ interface AnalysisContextValue {
   loading: boolean;
   refreshing: boolean;
   error: string | null;
-  runAnalysis: () => Promise<void>;
+  runAnalysis: () => Promise<AnalyzeResponse | null>;
 }
 
 const AnalysisContext = createContext<AnalysisContextValue | null>(null);
@@ -90,12 +90,14 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       setAnalysis(a);
       setReadings(r);
       setVerification(v);
+      return a;
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : "Could not reach the engine",
       );
+      return null;
     } finally {
       setRefreshing(false);
     }
