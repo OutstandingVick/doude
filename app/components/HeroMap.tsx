@@ -1,22 +1,25 @@
 "use client";
 
 import { MapContainer, Circle, CircleMarker, Marker, Polyline, Polygon, TileLayer, useMap } from "react-leaflet";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
-import { Clock, Crosshair, Droplets, Maximize2, Waves } from "lucide-react";
+import { Clock, Crosshair, Droplets, Layers, Maximize2, Waves, X } from "lucide-react";
 import { formatBbl, formatKm, formatNumber, roundHalfUp, toLatLng } from "@/lib/format";
 import type { AnalyzeResponse, ScenarioResponse } from "@/lib/types";
 
-// Keyless Esri World Imagery (satellite) basemap.
+// Keyless Esri basemaps (no API key required).
 const SATELLITE_TILES =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
-const SATELLITE_ATTRIBUTION =
-  "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics";
+const DARK_TILES =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+const SATELLITE_ATTRIBUTION = "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics";
+const DARK_ATTRIBUTION = "Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors";
 
 const ROUTE_COLOR = "#ffffff";
 const RING = "#111111";
+type Basemap = "satellite" | "dark";
 
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
@@ -28,17 +31,16 @@ function FitBounds({ points }: { points: [number, number][] }) {
   return null;
 }
 
-export interface HeroMapProps {
+function MapLayers({
+  analysis,
+  scenario,
+  basemap,
+}: {
   analysis: AnalyzeResponse;
   scenario: ScenarioResponse;
-  spillId?: string | null;
-  height?: number;
-}
-
-export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapProps) {
+  basemap: Basemap;
+}) {
   const routeLatLng = scenario.pipeline.route_lonlat.map(toLatLng);
-  const center = routeLatLng[0] ?? [4.8, 6.2];
-
   const leak = analysis.leak ? toLatLng(analysis.leak.location_lonlat) : null;
   const uncertaintyM = analysis.leak?.location_uncertainty_m;
   const slickPolygon =
@@ -56,7 +58,6 @@ export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapPr
       }),
     [],
   );
-
   const outletIcon = useMemo(
     () =>
       L.divIcon({
@@ -67,10 +68,6 @@ export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapPr
       }),
     [],
   );
-
-  // Interior route vertices get circular nodes; the ends get flow markers.
-  const interior: [number, number][] = routeLatLng.slice(1, -1);
-
   const leakIcon = useMemo(
     () =>
       L.divIcon({
@@ -82,95 +79,60 @@ export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapPr
     [],
   );
 
+  const interior = routeLatLng.slice(1, -1);
+
   return (
-    <div className="relative h-full w-full overflow-hidden">
-      <MapContainer
-        center={center}
-        zoom={11}
-        zoomControl={false}
-        style={{ height, width: "100%" }}
-        className="z-0"
-      >
-        <TileLayer attribution={SATELLITE_ATTRIBUTION} url={SATELLITE_TILES} />
-        <FitBounds points={routeLatLng} />
+    <>
+      <TileLayer
+        url={basemap === "dark" ? DARK_TILES : SATELLITE_TILES}
+        attribution={basemap === "dark" ? DARK_ATTRIBUTION : SATELLITE_ATTRIBUTION}
+      />
+      <FitBounds points={routeLatLng} />
 
-        {routeLatLng.length > 1 && (
-          <Polyline
-            positions={routeLatLng}
-            pathOptions={{ color: ROUTE_COLOR, weight: 3, opacity: 0.95 }}
-          />
-        )}
+      {routeLatLng.length > 1 && (
+        <Polyline positions={routeLatLng} pathOptions={{ color: ROUTE_COLOR, weight: 3, opacity: 0.95 }} />
+      )}
 
-        {interior.map((pt, i) => (
-          <CircleMarker
-            key={i}
-            center={pt}
-            radius={7}
-            pathOptions={{
-              color: RING,
-              opacity: 0.4,
-              weight: 3,
-              fillColor: ROUTE_COLOR,
-              fillOpacity: 1,
-            }}
-          />
-        ))}
+      {interior.map((pt, i) => (
+        <CircleMarker
+          key={i}
+          center={pt}
+          radius={7}
+          pathOptions={{ color: RING, opacity: 0.4, weight: 3, fillColor: ROUTE_COLOR, fillOpacity: 1 }}
+        />
+      ))}
 
-        {routeLatLng.length > 0 && (
-          <>
-            <Marker position={routeLatLng[0]} icon={inletIcon} />
-            <Marker position={routeLatLng[routeLatLng.length - 1]} icon={outletIcon} />
-          </>
-        )}
+      {routeLatLng.length > 0 && (
+        <>
+          <Marker position={routeLatLng[0]} icon={inletIcon} />
+          <Marker position={routeLatLng[routeLatLng.length - 1]} icon={outletIcon} />
+        </>
+      )}
 
-        {leak && (
-          <>
-            {typeof uncertaintyM === "number" && uncertaintyM > 0 && (
-              <Circle
-                center={leak}
-                radius={uncertaintyM}
-                pathOptions={{
-                  color: "#F5A524",
-                  dashArray: "6 4",
-                  fill: false,
-                  weight: 2,
-                }}
-              />
-            )}
-            <Marker position={leak} icon={leakIcon} />
-          </>
-        )}
+      {leak && (
+        <>
+          {typeof uncertaintyM === "number" && uncertaintyM > 0 && (
+            <Circle
+              center={leak}
+              radius={uncertaintyM}
+              pathOptions={{ color: "#F5A524", dashArray: "6 4", fill: false, weight: 2 }}
+            />
+          )}
+          <Marker position={leak} icon={leakIcon} />
+        </>
+      )}
 
-        {slickPolygon && (
-          <Polygon
-            positions={slickPolygon}
-            pathOptions={{
-              color: "#E5484D",
-              weight: 1,
-              fillColor: "#E5484D",
-              fillOpacity: 0.3,
-            }}
-          />
-        )}
-      </MapContainer>
-
-      {analysis.leak && analysis.quantification && (
-        <GlassInfoCard
-          analysis={analysis}
-          spillId={spillId}
+      {slickPolygon && (
+        <Polygon
+          positions={slickPolygon}
+          pathOptions={{ color: "#E5484D", weight: 1, fillColor: "#E5484D", fillOpacity: 0.3 }}
         />
       )}
-    </div>
+    </>
   );
 }
 
-function GlassInfoCard({
-  analysis,
-  spillId,
-}: {
-  analysis: AnalyzeResponse;
-  spillId?: string | null;
-}) {
+function GlassInfoCard({ analysis, spillId }: { analysis: AnalyzeResponse; spillId?: string | null }) {
   const leak = analysis.leak!;
   const q = analysis.quantification!;
   const impact = analysis.impact;
@@ -217,6 +179,78 @@ function GlassInfoCard({
         >
           +
         </Link>
+      )}
+    </div>
+  );
+}
+
+export interface HeroMapProps {
+  analysis: AnalyzeResponse;
+  scenario: ScenarioResponse;
+  spillId?: string | null;
+  height?: number;
+}
+
+export function HeroMap({ analysis, scenario, spillId, height = 560 }: HeroMapProps) {
+  const [basemap, setBasemap] = useState<Basemap>("satellite");
+  const [expanded, setExpanded] = useState(false);
+  const routeLatLng = scenario.pipeline.route_lonlat.map(toLatLng);
+  const center = routeLatLng[0] ?? [4.8, 6.2];
+
+  return (
+    <div className="relative h-full w-full overflow-hidden">
+      <MapContainer
+        center={center}
+        zoom={11}
+        zoomControl={false}
+        style={{ height, width: "100%" }}
+        className="z-0"
+      >
+        <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} />
+      </MapContainer>
+
+      <div className="absolute right-4 top-4 z-20 flex flex-col gap-2">
+        <button
+          type="button"
+          aria-label="Toggle basemap"
+          onClick={() => setBasemap((b) => (b === "satellite" ? "dark" : "satellite"))}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-text shadow-md transition-colors hover:bg-surface2"
+        >
+          <Layers className="h-[18px] w-[18px]" />
+        </button>
+        <button
+          type="button"
+          aria-label="Expand map"
+          onClick={() => setExpanded(true)}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-text shadow-md transition-colors hover:bg-surface2"
+        >
+          <Maximize2 className="h-[18px] w-[18px]" />
+        </button>
+      </div>
+
+      {analysis.leak && analysis.quantification && (
+        <GlassInfoCard analysis={analysis} spillId={spillId} />
+      )}
+
+      {expanded && (
+        <div className="fixed inset-0 z-50 bg-bg">
+          <MapContainer
+            center={center}
+            zoom={11}
+            zoomControl={false}
+            style={{ height: "100vh", width: "100vw" }}
+          >
+            <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} />
+          </MapContainer>
+          <button
+            type="button"
+            aria-label="Close full screen"
+            onClick={() => setExpanded(false)}
+            className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-text shadow-md hover:bg-surface2"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       )}
     </div>
   );
