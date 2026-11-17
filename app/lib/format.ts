@@ -15,6 +15,14 @@ const MONTHS = [
   "Dec",
 ];
 
+/**
+ * Round half-up using the decimal string, avoiding JS toFixed float issues
+ * (e.g. 44.15 -> 44.2, not 44.1).
+ */
+export function roundHalfUp(value: number, places = 0): number {
+  return Number(Math.round(Number(value + "e" + places)) + "e-" + places);
+}
+
 /** 28880 -> "28,880" */
 export function formatBbl(value: number): string {
   return Math.round(value).toLocaleString("en-US");
@@ -22,7 +30,7 @@ export function formatBbl(value: number): string {
 
 /** 4591.6 -> "4,591.6" */
 export function formatNumber(value: number, decimals = 1): string {
-  return value.toLocaleString("en-US", {
+  return roundHalfUp(value, decimals).toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
@@ -30,12 +38,12 @@ export function formatNumber(value: number, decimals = 1): string {
 
 /** 13390.2 -> "KM 13.39" */
 export function formatKm(meters: number): string {
-  return `KM ${(meters / 1000).toFixed(2)}`;
+  return `KM ${roundHalfUp(meters / 1000, 2).toFixed(2)}`;
 }
 
 /** 6.22226 -> "6.22226" */
 export function formatCoord(value: number): string {
-  return value.toFixed(5);
+  return roundHalfUp(value, 5).toFixed(5);
 }
 
 /** "2026-11-03T14:05:00Z" -> "03 Nov, 14:05 UTC" */

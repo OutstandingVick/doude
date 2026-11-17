@@ -21,6 +21,7 @@ import {
   formatKm,
   formatNumber,
   formatUtc,
+  roundHalfUp,
 } from "@/lib/format";
 
 const SpillMap = dynamic(
@@ -138,13 +139,13 @@ export default function Dashboard() {
 
         <KpiCard
           label="Release duration"
-          value={leak ? `${leak.duration_hours.toFixed(1)} h` : "—"}
+          value={leak ? `${roundHalfUp(leak.duration_hours, 1)} h` : "—"}
           sub={leak ? `Shut in after JIV · ${formatUtc(leak.shut_in_at ?? "")}` : "—"}
           visual={
             <Gauge
               value={leak?.duration_hours ?? 0}
               max={48}
-              label={leak ? `${leak.duration_hours.toFixed(1)}h` : "—"}
+              label={leak ? `${roundHalfUp(leak.duration_hours, 1)}h` : "—"}
             />
           }
         />
@@ -195,7 +196,7 @@ export default function Dashboard() {
                   />
                 </div>
                 <span className="w-16 shrink-0 text-right text-xs tabular-nums text-text">
-                  {(inletToLeak / 1000).toFixed(1)} km
+                  {roundHalfUp(inletToLeak / 1000, 1)} km
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -207,7 +208,7 @@ export default function Dashboard() {
                   />
                 </div>
                 <span className="w-16 shrink-0 text-right text-xs tabular-nums text-text">
-                  {(leakToOutlet / 1000).toFixed(1)} km
+                  {roundHalfUp(leakToOutlet / 1000, 1)} km
                 </span>
               </div>
             </div>
