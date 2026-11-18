@@ -10,7 +10,7 @@ import json
 import os
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional
 
@@ -133,6 +133,14 @@ def init_db(conn: sqlite3.Connection) -> None:
             at TEXT,
             prev_hash TEXT,
             entry_hash TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT,
+            phone TEXT,
+            created_at TEXT
         );
         """
     )
@@ -297,6 +305,7 @@ def get_spill(conn: sqlite3.Connection, spill_id: str) -> Optional[Dict]:
             "SELECT * FROM audit_log WHERE spill_id = ? ORDER BY id", (spill_id,)
         ).fetchall()
     ]
+    item["form_a"] = form_a_status(conn, spill_id)
     return item
 
 
@@ -357,6 +366,161 @@ def add_evidence(conn: sqlite3.Connection, spill_id: str, filename: str,
         )
         log(conn, spill_id, "evidence_added", actor, {"sha256": sha, "filename": safe})
     return dict(conn.execute("SELECT * FROM evidence WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+def _parse_ts(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
+def _form_a_deadline(detected_at):
+    d = _parse_ts(detected_at)
+    if d is None:
+        return None
+    return (d.astimezone(timezone.utc) + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _is_late(detected_at, filed_at):
+    d = _parse_ts(detected_at)
+    f = _parse_ts(filed_at)
+    if d is None or f is None:
+        return False
+    return f > d.astimezone(timezone.utc) + timedelta(hours=24)
+
+
+_AUDIT_TITLES = {
+    "spill_recorded": "Spill recorded",
+    "analysis_rerun_identical": "Analysis re-run (identical)",
+    "analysis_no_spill": "Analysis (no spill)",
+    "status_changed": "Status changed",
+    "evidence_added": "Evidence added",
+    "form_a_filed": "Form A filed",
+    "contact_added": "Contact added",
+    "contact_removed": "Contact removed",
+}
+
+
+def _audit_detail(action, detail):
+    if action == "status_changed":
+        text = "%s → %s" % (detail.get("from"), detail.get("to"))
+        return text + (" · %s" % detail["note"] if detail.get("note") else "")
+    if action == "evidence_added":
+        return detail.get("filename") or ""
+    if action == "analysis_rerun_identical":
+        return (detail.get("report_hash") or "").replace("sha256:", "")
+    if action == "form_a_filed":
+        return detail.get("reference") or ""
+    if action in ("contact_added", "contact_removed"):
+        return detail.get("name") or ""
+    return detail.get("pipeline_id") or ""
+
+
+def notifications(conn) -> List[Dict]:
+    """Build a notification feed from the audit log plus Form A deadlines."""
+    now = datetime.now(timezone.utc)
+    items = []
+
+    for row in conn.execute("SELECT * FROM audit_log ORDER BY id DESC").fetchall():
+        detail = json.loads(row["detail_json"]) if row["detail_json"] else {}
+        items.append({
+            "id": "audit-%d" % row["id"],
+            "kind": "audit",
+            "title": _AUDIT_TITLES.get(row["action"], row["action"]),
+            "detail": _audit_detail(row["action"], detail),
+            "at": row["at"],
+            "actor": row["actor"],
+            "spill_id": row["spill_id"],
+            "link": ("/spills/%s" % row["spill_id"]) if row["spill_id"] else "/",
+        })
+
+    for spill in conn.execute("SELECT id, detected_at FROM spills").fetchall():
+        deadline = _form_a_deadline(spill["detected_at"])
+        if not deadline:
+            continue
+        if conn.execute(
+            "SELECT 1 FROM audit_log WHERE spill_id = ? AND action = 'form_a_filed' LIMIT 1",
+            (spill["id"],),
+        ).fetchone():
+            continue
+        items.append({
+            "id": "deadline-%s" % spill["id"],
+            "kind": "deadline",
+            "title": "Form A due (24 h)",
+            "detail": "Notification to NOSDRA",
+            "at": deadline,
+            "actor": None,
+            "spill_id": spill["id"],
+            "link": "/spills/%s" % spill["id"],
+            "overdue": _parse_ts(deadline) < now,
+        })
+
+    items.sort(key=lambda n: n["at"], reverse=True)
+    return items
+
+
+def form_a_status(conn, spill_id):
+    """Return the Form A filing status for a spill, or ``None`` if not filed."""
+    row = conn.execute(
+        "SELECT detail_json FROM audit_log WHERE spill_id = ? AND action = 'form_a_filed'"
+        " ORDER BY id DESC LIMIT 1",
+        (spill_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    detail = json.loads(row["detail_json"])
+    return {
+        "filed": True,
+        "late": bool(detail.get("late")),
+        "reference": detail.get("reference"),
+        "filed_at": detail.get("filed_at"),
+    }
+
+
+def file_form_a(conn, spill_id, actor, reference, filed_at=None):
+    """Record that Form A was filed, logging it to the audit chain."""
+    actor = actor or "demo-regulator"
+    filed_at = filed_at or _now()
+    with write_transaction(conn):
+        row = conn.execute("SELECT detected_at FROM spills WHERE id = ?", (spill_id,)).fetchone()
+        if row is None:
+            raise ValueError("unknown spill id")
+        late = _is_late(row["detected_at"], filed_at)
+        log(conn, spill_id, "form_a_filed", actor,
+            {"reference": reference, "filed_at": filed_at, "late": late})
+    return {"spill_id": spill_id, "filed": True, "late": late,
+            "reference": reference, "filed_at": filed_at}
+
+
+def list_contacts(conn) -> List[Dict]:
+    return [dict(r) for r in conn.execute("SELECT * FROM contacts ORDER BY id").fetchall()]
+
+
+def add_contact(conn, name, email, phone, actor):
+    """Add a notification contact and log it."""
+    actor = actor or "demo-regulator"
+    with write_transaction(conn):
+        cur = conn.execute(
+            "INSERT INTO contacts (name, email, phone, created_at) VALUES (?, ?, ?, ?)",
+            (name, email, phone, _now()),
+        )
+        log(conn, None, "contact_added", actor,
+            {"name": name, "email": email, "phone": phone})
+    return dict(conn.execute("SELECT * FROM contacts WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+def remove_contact(conn, contact_id, actor):
+    """Remove a notification contact and log it."""
+    actor = actor or "demo-regulator"
+    with write_transaction(conn):
+        row = conn.execute("SELECT name FROM contacts WHERE id = ?", (contact_id,)).fetchone()
+        if row is None:
+            raise ValueError("unknown contact id")
+        conn.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))
+        log(conn, None, "contact_removed", actor, {"id": contact_id, "name": row["name"]})
 
 def reset_dev(db_path: Optional[str] = None, assume_yes: bool = False) -> bool:
     """Delete the local dev database (plus WAL files) and stored evidence.

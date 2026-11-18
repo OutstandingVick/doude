@@ -63,6 +63,17 @@ class StatusUpdate(BaseModel):
     note: Optional[str] = None
 
 
+class FormAFiled(BaseModel):
+    reference: str
+    filed_at: Optional[str] = None
+
+
+class ContactIn(BaseModel):
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+
 def load(rel: str) -> dict:
     return json.loads((ROOT / rel).read_text())
 
@@ -215,6 +226,48 @@ def get_audit(spill_id: str, conn=Depends(get_conn)):
         "SELECT * FROM audit_log WHERE spill_id = ? ORDER BY id",
         (spill_id,)).fetchall()
     return [dict(r) for r in rows]
+
+
+@app.post("/spills/{spill_id}/forms/a/filed")
+def file_form_a(spill_id: str, body: FormAFiled,
+                x_doude_actor: str = Header(default="demo-regulator"),
+                conn=Depends(get_conn)):
+    try:
+        return db.file_form_a(conn, spill_id, x_doude_actor, body.reference, body.filed_at)
+    except ValueError as exc:
+        return _spill_not_found()
+
+
+@app.get("/notifications")
+def notifications(conn=Depends(get_conn)):
+    return db.notifications(conn)
+
+
+@app.get("/contacts")
+def list_contacts(conn=Depends(get_conn)):
+    return db.list_contacts(conn)
+
+
+@app.post("/contacts")
+def add_contact(body: ContactIn,
+                x_doude_actor: str = Header(default="demo-regulator"),
+                conn=Depends(get_conn)):
+    if not body.name.strip():
+        return JSONResponse(status_code=400, content={
+            "error": "invalid_contact", "message": "name is required"})
+    return db.add_contact(conn, body.name.strip(), body.email, body.phone, x_doude_actor)
+
+
+@app.delete("/contacts/{contact_id}")
+def remove_contact(contact_id: int,
+                   x_doude_actor: str = Header(default="demo-regulator"),
+                   conn=Depends(get_conn)):
+    try:
+        db.remove_contact(conn, contact_id, x_doude_actor)
+    except ValueError:
+        return JSONResponse(status_code=404, content={
+            "error": "contact_not_found", "message": "unknown contact id"})
+    return {"id": contact_id, "removed": True}
 
 
 @app.get("/audit/verify")
