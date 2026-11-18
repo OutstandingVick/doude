@@ -12,6 +12,8 @@ import {
   getHealth,
   getScenario,
   getReadings,
+  getSpill,
+  getSpills,
   runAnalysis,
   verify,
 } from "@/lib/api";
@@ -32,10 +34,25 @@ interface AnalysisContextValue {
   loading: boolean;
   refreshing: boolean;
   error: string | null;
+  /** Increments after every analysis run so views can refetch records. */
+  revision: number;
   runAnalysis: () => Promise<AnalyzeResponse | null>;
 }
 
 const AnalysisContext = createContext<AnalysisContextValue | null>(null);
+
+/**
+ * Load the most recent stored analysis without creating anything.
+ * Page loads must stay read-only: only an explicit "Run analysis" action
+ * (button or R shortcut) may POST /analyze and append to the audit log.
+ */
+async function loadLatestAnalysis(): Promise<AnalyzeResponse | null> {
+  const spills = await getSpills();
+  if (spills.length === 0) return null;
+  const latest = await getSpill(spills[0].id);
+  if (!latest.analysis) return null;
+  return { ...latest.analysis, spill_id: latest.id };
+}
 
 export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -46,6 +63,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +73,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
           getHealth(),
           getScenario(),
           getReadings(),
-          runAnalysis(),
+          loadLatestAnalysis(),
           verify(),
         ]);
         if (cancelled) return;
@@ -90,6 +108,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       setAnalysis(a);
       setReadings(r);
       setVerification(v);
+      setRevision((n) => n + 1);
       return a;
     } catch (err) {
       setError(
@@ -114,6 +133,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
         loading,
         refreshing,
         error,
+        revision,
         runAnalysis: handleRunAnalysis,
       }}
     >

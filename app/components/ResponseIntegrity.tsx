@@ -46,9 +46,9 @@ export function ResponseIntegrity({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [auditCount]);
 
-  const integrityLabel = integrity?.ok ? "Verified" : "Broken";
+  const integrityLabel = integrity === null ? "Checking…" : integrity.ok ? "Verified" : "Broken";
 
   return (
     <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
@@ -99,7 +99,7 @@ export function ResponseIntegrity({
           icon={<ShieldCheck className="h-3.5 w-3.5" />}
           label="Integrity"
           value={integrityLabel}
-          tone={integrity?.ok ? "success" : "danger"}
+          tone={integrity === null ? undefined : integrity.ok ? "success" : "danger"}
         />
       </div>
     </div>

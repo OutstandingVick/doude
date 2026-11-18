@@ -9,6 +9,7 @@ import { LeakRateChart } from "@/components/LeakRateChart";
 import { SpillSnapshot } from "@/components/SpillSnapshot";
 import { RegulatoryTimeline } from "@/components/RegulatoryTimeline";
 import { ResponseIntegrity } from "@/components/ResponseIntegrity";
+import { EmptyState } from "@/components/EmptyState";
 import { getSpill } from "@/lib/api";
 import type { SpillDetail } from "@/lib/types";
 
@@ -21,7 +22,8 @@ const GRID =
   "grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-12 xl:grid-rows-[minmax(0,1fr)_minmax(0,1fr)]";
 
 export default function Dashboard() {
-  const { analysis, scenario, readings, loading, error, runAnalysis } = useAnalysis();
+  const { analysis, scenario, readings, loading, refreshing, error, revision, runAnalysis } =
+    useAnalysis();
   const [spill, setSpill] = useState<SpillDetail | null>(null);
 
   const spillId = analysis?.spill_id ?? null;
@@ -39,12 +41,34 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [spillId]);
+  }, [spillId, revision]);
 
   if (error) {
     return (
       <div className="card">
         <OfflineCard message={error} />
+      </div>
+    );
+  }
+
+  if (!loading && scenario && !analysis) {
+    return (
+      <div data-card className="card flex min-h-0 flex-1 items-center justify-center">
+        <EmptyState
+          icon={<span aria-hidden className="text-lg">◎</span>}
+          title="No analysis recorded yet"
+          description="Run the analysis to detect, locate and quantify a spill. Each run is added to the audit log."
+          action={
+            <button
+              type="button"
+              onClick={() => void runAnalysis()}
+              disabled={refreshing}
+              className="rounded-[12px] bg-primary px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-primary-dark disabled:opacity-60"
+            >
+              {refreshing ? "Running…" : "Run analysis"}
+            </button>
+          }
+        />
       </div>
     );
   }
