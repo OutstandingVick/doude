@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CircleHelp,
+  ChevronsLeft,
+  ChevronsRight,
   FileText,
   FolderOpen,
   LayoutDashboard,
@@ -27,12 +29,22 @@ const NAV = [
 const USER_NAME = "Victor Ogbonna";
 const USER_HANDLE = "Regulator view";
 const USER_INITIALS = "VO";
+const STORAGE_KEY = "doude-sidebar-collapsed";
+
+function readStoredCollapsed(): boolean {
+  try {
+    return typeof window !== "undefined" && window.localStorage.getItem(STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export function Sidebar() {
   const pathname = usePathname();
   const { runAnalysis, refreshing } = useAnalysis();
   const [spillCount, setSpillCount] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(readStoredCollapsed);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +59,18 @@ export function Sidebar() {
       cancelled = true;
     };
   }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   function isActive(item: (typeof NAV)[number]) {
     return item.exact ? pathname === item.href : pathname.startsWith(item.href);
@@ -68,22 +92,64 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="sticky top-6 hidden h-[calc(100vh-7rem)] w-[232px] shrink-0 flex-col border-r border-surface3 pr-6 md:flex">
-      <div className="pt-2">
-        <Link
-          href="/"
-          aria-label="Doude home"
-          className="text-[26px] font-semibold tracking-tight text-green"
+    <aside
+      className={`sticky top-6 hidden h-[calc(100vh-7rem)] shrink-0 flex-col border-r border-surface3 px-4 md:flex ${
+        collapsed ? "w-[76px]" : "w-[232px]"
+      }`}
+    >
+      <div className="flex items-center justify-between pt-2">
+        {collapsed ? (
+          <Link
+            href="/"
+            aria-label="Doude home"
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-green text-lg font-semibold text-white"
+          >
+            d
+          </Link>
+        ) : (
+          <div className="pr-8">
+            <Link
+              href="/"
+              aria-label="Doude home"
+              className="text-[26px] font-semibold tracking-tight text-green"
+            >
+              doude
+            </Link>
+            <div className="mt-0.5 text-xs text-faint">Spill intelligence</div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-surface3 text-muted transition-colors hover:text-text"
         >
-          doude
-        </Link>
-        <div className="mt-0.5 text-xs text-faint">Spill intelligence</div>
+          {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+        </button>
       </div>
 
       <nav aria-label="Main" className="mt-7 flex flex-col gap-2">
         {NAV.map((item) => {
           const active = isActive(item);
           const Icon = item.icon;
+          if (collapsed) {
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-label={item.label}
+                aria-current={active ? "page" : undefined}
+                className={`group relative flex h-11 w-11 items-center justify-center rounded-[12px] transition-colors ${
+                  active ? "bg-text text-white" : "bg-surface3 text-muted hover:bg-[#e6e6e0] hover:text-text"
+                }`}
+              >
+                <Icon className="h-[18px] w-[18px]" />
+                <span className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-md bg-text px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          }
           return (
             <Link
               key={item.href}
@@ -93,9 +159,7 @@ export function Sidebar() {
                 active ? "bg-text text-white" : "bg-surface3 text-text hover:bg-[#e6e6e0]"
               }`}
             >
-              <Icon
-                className={`h-[18px] w-[18px] shrink-0 ${active ? "text-white" : "text-muted"}`}
-              />
+              <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-white" : "text-muted"}`} />
               <span>{item.label}</span>
               {item.href === "/spills" && spillCount > 0 && (
                 <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-medium text-text">
@@ -111,29 +175,37 @@ export function Sidebar() {
         type="button"
         onClick={handleRunAnalysis}
         disabled={refreshing}
-        className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-[12px] bg-primary text-sm font-medium text-text transition-colors hover:bg-primary-dark disabled:opacity-60"
+        aria-label="Run analysis"
+        className={`mt-6 flex items-center justify-center gap-2 rounded-[12px] bg-primary font-medium text-text transition-colors hover:bg-primary-dark disabled:opacity-60 ${
+          collapsed ? "h-11 w-11" : "h-11 w-full text-sm"
+        }`}
       >
         {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-        Run analysis
+        {!collapsed && "Run analysis"}
       </button>
 
       <div className="mt-auto">
         <Link
           href="/docs"
-          className="flex h-11 items-center gap-3 rounded-[12px] px-4 text-sm font-medium text-muted transition-colors hover:bg-surface3 hover:text-text"
+          aria-label="Help and docs"
+          className={`flex h-11 items-center gap-3 rounded-[12px] text-sm font-medium text-muted transition-colors hover:bg-surface3 hover:text-text ${
+            collapsed ? "justify-center px-0" : "px-4"
+          }`}
         >
           <CircleHelp className="h-[18px] w-[18px] shrink-0" />
-          Help &amp; docs
+          {!collapsed && "Help & docs"}
         </Link>
         <div className="my-4 h-px bg-surface3" />
-        <div className="flex items-center gap-3 px-1">
+        <div className={`flex items-center gap-3 ${collapsed ? "justify-center px-0" : "px-1"}`}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green text-xs font-semibold text-white">
             {USER_INITIALS}
           </div>
-          <div className="min-w-0">
-            <div className="truncate text-sm text-text">{USER_NAME}</div>
-            <div className="truncate text-xs text-faint">{USER_HANDLE}</div>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <div className="truncate text-sm text-text">{USER_NAME}</div>
+              <div className="truncate text-xs text-faint">{USER_HANDLE}</div>
+            </div>
+          )}
         </div>
       </div>
 
