@@ -25,16 +25,18 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen antialiased">
         <AnalysisProvider>
-          <div className="mx-8 my-8 min-h-[calc(100vh-4rem)] max-w-[1440px] rounded-[28px] border border-border bg-container p-6 shadow-[0_20px_60px_rgba(0,0,0,0.06)]">
-            <div className="flex gap-6">
+          <div className="mx-8 my-8 min-h-[calc(100vh-4rem)] max-w-[1440px] rounded-[28px] border border-border bg-container p-6 shadow-[0_20px_60px_rgba(0,0,0,0.06)] lg:h-[calc(100dvh-64px)] lg:overflow-hidden">
+            <div className="flex h-full gap-6">
               <Suspense fallback={null}>
                 <Sidebar />
               </Suspense>
-              <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-1 flex-col">
                 <Suspense fallback={null}>
                   <TopNav />
                 </Suspense>
-                <Suspense fallback={null}>{children}</Suspense>
+                <div className="min-h-0 flex-1">
+                  <Suspense fallback={null}>{children}</Suspense>
+                </div>
               </div>
             </div>
           </div>

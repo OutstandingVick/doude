@@ -51,7 +51,7 @@ export function ResponseIntegrity({
   const integrityLabel = integrity?.ok ? "Verified" : "Broken";
 
   return (
-    <div className="card flex h-full flex-col">
+    <div className="card flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between">
         <h2 className="card-title">Response &amp; integrity</h2>
         <ExpandButton />

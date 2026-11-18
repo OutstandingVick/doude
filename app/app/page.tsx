@@ -17,7 +17,8 @@ const HeroMap = dynamic(
   { ssr: false },
 );
 
-const GRID = "grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-12 xl:auto-rows-[minmax(360px,1fr)]";
+const GRID =
+  "grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-12 xl:grid-rows-[minmax(0,1fr)_minmax(0,1fr)]";
 
 export default function Dashboard() {
   const { analysis, scenario, readings, loading, error, runAnalysis } = useAnalysis();
@@ -51,20 +52,20 @@ export default function Dashboard() {
   if (loading || !analysis || !scenario) {
     return (
       <div className={GRID}>
-        <div className="md:col-span-2 xl:col-span-5 xl:row-span-2">
-          <Skeleton className="h-full min-h-[360px]" />
+        <div className="min-h-0 md:col-span-2 xl:col-span-5 xl:row-span-2">
+          <Skeleton className="h-full" />
         </div>
-        <div className="xl:col-span-4">
-          <Skeleton className="h-full min-h-[360px]" />
+        <div className="min-h-0 xl:col-span-4">
+          <Skeleton className="h-full" />
         </div>
-        <div className="xl:col-span-3">
-          <Skeleton className="h-full min-h-[360px]" />
+        <div className="min-h-0 xl:col-span-3">
+          <Skeleton className="h-full" />
         </div>
-        <div className="xl:col-span-4">
-          <Skeleton className="h-full min-h-[360px]" />
+        <div className="min-h-0 xl:col-span-4">
+          <Skeleton className="h-full" />
         </div>
-        <div className="xl:col-span-3">
-          <Skeleton className="h-full min-h-[360px]" />
+        <div className="min-h-0 xl:col-span-3">
+          <Skeleton className="h-full" />
         </div>
       </div>
     );
@@ -77,7 +78,7 @@ export default function Dashboard() {
 
   return (
     <div className={GRID}>
-      <div className="md:col-span-2 xl:col-span-5 xl:row-span-2">
+      <div className="min-h-0 md:col-span-2 xl:col-span-5 xl:row-span-2">
         <div className="card h-full overflow-hidden p-0">
           <HeroMap
             analysis={analysis}
@@ -88,11 +89,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="xl:col-span-4">
+      <div className="min-h-0 xl:col-span-4">
         <LeakRateChart analysis={analysis} readings={readings} />
       </div>
 
-      <div className="xl:col-span-3">
+      <div className="min-h-0 xl:col-span-3">
         <SpillSnapshot
           analysis={analysis}
           scenario={scenario}
@@ -101,11 +102,11 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="xl:col-span-4">
+      <div className="min-h-0 xl:col-span-4">
         <RegulatoryTimeline analysis={analysis} spillId={id} status={status} />
       </div>
 
-      <div className="xl:col-span-3">
+      <div className="min-h-0 xl:col-span-3">
         <ResponseIntegrity
           analysis={analysis}
           spillId={id}

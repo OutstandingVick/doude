@@ -64,7 +64,7 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
   const MONTH_NAMES = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
 
   return (
-    <div className="card flex h-full flex-col">
+    <div className="card flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between">
         <h2 className="card-title">Regulatory timeline</h2>
         <div className="flex items-center gap-2">
@@ -79,7 +79,7 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
         {MONTH_NAMES[month]}
       </div>
 
-      <div className="mt-2 flex flex-col gap-2.5 overflow-y-auto">
+      <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto">
         {rows.map((row, i) => {
           const { weekday, day } = dayInfo(row.date);
           const overdue = !row.done && new Date(row.date).getTime() < now;

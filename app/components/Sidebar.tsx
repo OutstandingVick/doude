@@ -272,7 +272,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sticky top-6 flex h-[calc(100vh-7rem)] shrink-0 flex-col border-r border-surface3 px-4 ${
+      className={`flex h-full shrink-0 flex-col border-r border-surface3 px-4 ${
         effectiveCollapsed ? "w-[76px]" : "w-[232px]"
       }`}
     >
