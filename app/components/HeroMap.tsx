@@ -3,7 +3,6 @@
 import { MapContainer, Circle, CircleMarker, Marker, Polyline, Polygon, TileLayer, useMap } from "react-leaflet";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import Link from "next/link";
 import { getSpills } from "@/lib/api";
 import {
@@ -116,6 +115,7 @@ function MapLayers({
       <TileLayer
         url={basemap === "dark" ? DARK_TILES : SATELLITE_TILES}
         attribution={basemap === "dark" ? DARK_ATTRIBUTION : SATELLITE_ATTRIBUTION}
+        className="map-tiles"
       />
       <FitBounds points={routeLatLng} />
 
@@ -318,6 +318,7 @@ export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = "
       <MapContainer
         center={center}
         zoom={11}
+        zoomSnap={1}
         zoomControl={false}
         style={{ height, width: "100%" }}
         className="z-0"
@@ -387,6 +388,7 @@ export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = "
           <MapContainer
             center={center}
             zoom={11}
+            zoomSnap={1}
             zoomControl={false}
             style={{ height: "100vh", width: "100vw" }}
           >

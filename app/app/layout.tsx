@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import { AnalysisProvider } from "@/components/AnalysisProvider";
 import { TopNav } from "@/components/TopNav";
 import { Sidebar } from "@/components/Sidebar";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
 const inter = Inter({

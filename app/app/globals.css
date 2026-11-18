@@ -132,6 +132,11 @@ body {
   border: none;
 }
 
+/* Remove faint grid lines (tile seams) from the satellite basemap. */
+.leaflet-tile {
+  image-rendering: -webkit-optimize-contrast;
+}
+
 /* Pulsing leak marker */
 @keyframes doude-pulse {
   0% {
