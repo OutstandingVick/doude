@@ -84,7 +84,7 @@ export function TopNav() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href="/settings" aria-label="Settings" className="icon-btn">
+          <Link data-topbar-action href="/settings" aria-label="Settings" className="icon-btn">
             <Settings className="h-[18px] w-[18px]" />
           </Link>
           <NotificationsBell />

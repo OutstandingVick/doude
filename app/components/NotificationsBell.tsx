@@ -11,6 +11,7 @@ import type { Notification } from "@/lib/types";
 const LAST_SEEN_KEY = "doude-notifications-last-seen";
 
 function readLastSeen(): number {
+  if (typeof window === "undefined") return 0;
   try {
     return Number(window.localStorage.getItem(LAST_SEEN_KEY)) || 0;
   } catch {
@@ -29,11 +30,10 @@ function writeLastSeen(ts: number) {
 export function NotificationsBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notification[]>([]);
-  const [lastSeen, setLastSeen] = useState(0);
+  const [lastSeen, setLastSeen] = useState(readLastSeen);
   const ref = useOutsideClose<HTMLDivElement>(useCallback(() => setOpen(false), []));
 
   useEffect(() => {
-    setLastSeen(readLastSeen());
     let cancelled = false;
     getNotifications()
       .then((n) => !cancelled && setItems(n))
