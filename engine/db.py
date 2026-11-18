@@ -9,9 +9,10 @@ import hashlib
 import json
 import os
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Iterator, List, Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = ROOT / "data" / "doude.db"
@@ -31,13 +32,45 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+BUSY_TIMEOUT_MS = 10000
+
+
 def connect(path: Optional[str] = None) -> sqlite3.Connection:
-    """Open a connection to the Doude database (row factory + foreign keys)."""
+    """Open a connection to the Doude database.
+
+    The connection runs in autocommit mode (``isolation_level=None``) so that
+    writes control their own transactions via :func:`write_transaction`. WAL
+    journaling and a busy timeout let concurrent requests wait for the write
+    lock instead of failing. Use one connection per request/thread.
+    """
     db_path = path or os.environ.get("DOUDE_DB") or str(DEFAULT_DB)
-    conn = sqlite3.connect(db_path)
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path, timeout=BUSY_TIMEOUT_MS / 1000.0, isolation_level=None)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = %d" % BUSY_TIMEOUT_MS)
+    conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+@contextmanager
+def write_transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
+    """Run a block inside one ``BEGIN IMMEDIATE`` write transaction.
+
+    ``BEGIN IMMEDIATE`` takes SQLite's write lock up front, so reads made in
+    the block (e.g. the last audit ``entry_hash``) cannot go stale before the
+    insert. Nested use joins the outer transaction.
+    """
+    if conn.in_transaction:
+        yield conn
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        yield conn
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    conn.execute("COMMIT")
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -103,24 +136,37 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _canonical(value) -> str:
+    """Canonical JSON used both for stored ``detail_json`` and entry hashes."""
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
 def _entry_hash(prev_hash: str, spill_id, action: str, actor: str, detail, at: str) -> str:
     payload = {"spill_id": spill_id, "action": action, "actor": actor, "detail": detail, "at": at}
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    canonical = _canonical(payload)
     return "sha256:" + hashlib.sha256((prev_hash + canonical).encode("utf-8")).hexdigest()
 
 
 def log(conn: sqlite3.Connection, spill_id, action: str, actor: str, detail) -> None:
-    """Append an audit entry, chaining its hash to the previous row."""
-    at = _now()
-    prev = conn.execute("SELECT entry_hash FROM audit_log ORDER BY id DESC LIMIT 1").fetchone()
-    prev_hash = prev["entry_hash"] if prev else "GENESIS"
-    entry = _entry_hash(prev_hash, spill_id, action, actor, detail, at)
-    conn.execute(
-        "INSERT INTO audit_log (spill_id, action, actor, detail_json, at, prev_hash, entry_hash)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (spill_id, action, actor, json.dumps(detail, sort_keys=True), at, prev_hash, entry),
-    )
-    conn.commit()
+    """Append an audit entry, chaining its hash to the previous row.
+
+    Reading the previous hash and inserting happen in one immediate write
+    transaction, so concurrent writers cannot chain to the same entry.
+    """
+    # Round-trip detail through canonical JSON so the hashed value is exactly
+    # what verify_audit_chain will reload from detail_json.
+    detail_json = _canonical(detail)
+    detail = json.loads(detail_json)
+    with write_transaction(conn):
+        at = _now()
+        prev = conn.execute("SELECT entry_hash FROM audit_log ORDER BY id DESC LIMIT 1").fetchone()
+        prev_hash = prev["entry_hash"] if prev else "GENESIS"
+        entry = _entry_hash(prev_hash, spill_id, action, actor, detail, at)
+        conn.execute(
+            "INSERT INTO audit_log (spill_id, action, actor, detail_json, at, prev_hash, entry_hash)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (spill_id, action, actor, detail_json, at, prev_hash, entry),
+        )
 
 
 def verify_audit_chain(conn: sqlite3.Connection) -> Dict:
@@ -129,6 +175,8 @@ def verify_audit_chain(conn: sqlite3.Connection) -> Dict:
     prev_hash = "GENESIS"
     for row in rows:
         detail = json.loads(row["detail_json"]) if row["detail_json"] else None
+        if row["prev_hash"] != prev_hash:
+            return {"ok": False, "entries": len(rows), "broken_at": row["id"]}
         expected = _entry_hash(prev_hash, row["spill_id"], row["action"], row["actor"], detail, row["at"])
         if expected != row["entry_hash"]:
             return {"ok": False, "entries": len(rows), "broken_at": row["id"]}
@@ -150,7 +198,6 @@ def upsert_pipeline_from_scenario(conn: sqlite3.Connection, scenario: Dict) -> N
          pipeline.get("length_m"), pipeline.get("inner_diameter_m"),
          pipeline.get("terrain_at_leak"), route_json, _now()),
     )
-    conn.commit()
 
 
 def _next_spill_id(conn: sqlite3.Connection) -> str:
@@ -170,6 +217,11 @@ def save_analysis(conn: sqlite3.Connection, response: Dict, actor: Optional[str]
         log(conn, None, "analysis_no_spill", actor, {"pipeline_id": response.get("pipeline_id")})
         return None
 
+    with write_transaction(conn):
+        return _save_detected(conn, response, actor)
+
+
+def _save_detected(conn: sqlite3.Connection, response: Dict, actor: str) -> str:
     report = response.get("report") or {}
     report_hash = report.get("report_hash")
     existing = conn.execute("SELECT id FROM spills WHERE report_hash = ?", (report_hash,)).fetchone()
@@ -249,6 +301,12 @@ def set_status(conn: sqlite3.Connection, spill_id: str, new_status: str,
                actor: Optional[str] = None, note: Optional[str] = None) -> None:
     """Advance a spill along detected -> jiv -> cleanup -> closed."""
     actor = actor or "demo-regulator"
+    with write_transaction(conn):
+        _set_status_locked(conn, spill_id, new_status, actor, note)
+
+
+def _set_status_locked(conn: sqlite3.Connection, spill_id: str, new_status: str,
+                       actor: str, note: Optional[str]) -> None:
     row = conn.execute("SELECT status FROM spills WHERE id = ?", (spill_id,)).fetchone()
     if row is None:
         raise ValueError("unknown spill id")
@@ -262,7 +320,6 @@ def set_status(conn: sqlite3.Connection, spill_id: str, new_status: str,
         (new_status, _now(), spill_id),
     )
     log(conn, spill_id, "status_changed", actor, {"from": current, "to": new_status, "note": note})
-    conn.commit()
 
 
 def _safe_filename(filename: str) -> str:
@@ -287,12 +344,13 @@ def add_evidence(conn: sqlite3.Connection, spill_id: str, filename: str,
     stored_path = spill_dir / ("%s_%s" % (sha, safe))
     stored_path.write_bytes(data_bytes)
 
-    cur = conn.execute(
-        "INSERT INTO evidence (spill_id, filename, content_type, size_bytes, sha256,"
-        " stored_path, note, uploaded_by, uploaded_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (spill_id, safe, content_type, len(data_bytes), sha, str(stored_path),
-         note, actor, _now()),
-    )
-    log(conn, spill_id, "evidence_added", actor, {"sha256": sha, "filename": safe})
+    with write_transaction(conn):
+        cur = conn.execute(
+            "INSERT INTO evidence (spill_id, filename, content_type, size_bytes, sha256,"
+            " stored_path, note, uploaded_by, uploaded_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (spill_id, safe, content_type, len(data_bytes), sha, str(stored_path),
+             note, actor, _now()),
+        )
+        log(conn, spill_id, "evidence_added", actor, {"sha256": sha, "filename": safe})
     return dict(conn.execute("SELECT * FROM evidence WHERE id = ?", (cur.lastrowid,)).fetchone())

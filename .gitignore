@@ -8,3 +8,5 @@ data/*.csv
 data/*.db
 data/evidence/
 /reports/
+data/doude.db-wal
+data/doude.db-shm
