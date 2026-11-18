@@ -35,17 +35,20 @@ def _now() -> str:
 BUSY_TIMEOUT_MS = 10000
 
 
-def connect(path: Optional[str] = None) -> sqlite3.Connection:
+def connect(path: Optional[str] = None, check_same_thread: bool = True) -> sqlite3.Connection:
     """Open a connection to the Doude database.
 
     The connection runs in autocommit mode (``isolation_level=None``) so that
     writes control their own transactions via :func:`write_transaction`. WAL
     journaling and a busy timeout let concurrent requests wait for the write
-    lock instead of failing. Use one connection per request/thread.
+    lock instead of failing. Use one connection per request/thread;
+    ``check_same_thread=False`` is only for a request-scoped connection that
+    the web framework hands between worker threads sequentially.
     """
     db_path = path or os.environ.get("DOUDE_DB") or str(DEFAULT_DB)
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=BUSY_TIMEOUT_MS / 1000.0, isolation_level=None)
+    conn = sqlite3.connect(db_path, timeout=BUSY_TIMEOUT_MS / 1000.0, isolation_level=None,
+                           check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout = %d" % BUSY_TIMEOUT_MS)
     conn.execute("PRAGMA journal_mode = WAL")

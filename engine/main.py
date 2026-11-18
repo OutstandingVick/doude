@@ -10,9 +10,9 @@ import os
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
+from typing import Iterator, Optional
 
-from fastapi import FastAPI, File, Form, Header, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -42,6 +42,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def get_conn() -> Iterator:
+    """Request-scoped database connection; never shared across requests.
+
+    FastAPI may open the dependency and run a sync endpoint on different
+    worker threads, so same-thread checking is relaxed. The connection is
+    still used by one request at a time and closed when it finishes.
+    """
+    conn = db.connect(check_same_thread=False)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 class StatusUpdate(BaseModel):
@@ -109,15 +123,11 @@ def readings(step: int = Query(10, ge=1)):
 
 
 @app.post("/analyze")
-def analyze(x_doude_actor: str = Header(default="demo-regulator")):
+def analyze(x_doude_actor: str = Header(default="demo-regulator"), conn=Depends(get_conn)):
     if not READINGS.exists():
         return _readings_missing()
     response = report.analyze()
-    conn = db.connect()
-    try:
-        spill_id = db.save_analysis(conn, response, x_doude_actor)
-    finally:
-        conn.close()
+    spill_id = db.save_analysis(conn, response, x_doude_actor)
     result = dict(response)
     result["spill_id"] = spill_id
     return result
@@ -137,34 +147,22 @@ def verify():
 
 
 @app.get("/pipelines")
-def pipelines():
-    conn = db.connect()
-    try:
-        rows = conn.execute(
-            "SELECT id, name, type, length_m, inner_diameter_m, terrain_at_leak, created_at"
-            " FROM pipelines ORDER BY id").fetchall()
-    finally:
-        conn.close()
+def pipelines(conn=Depends(get_conn)):
+    rows = conn.execute(
+        "SELECT id, name, type, length_m, inner_diameter_m, terrain_at_leak, created_at"
+        " FROM pipelines ORDER BY id").fetchall()
     return [dict(r) for r in rows]
 
 
 @app.get("/spills")
-def spills(pipeline_id: Optional[str] = None):
-    conn = db.connect()
-    try:
-        result = db.list_spills(conn, pipeline_id)
-    finally:
-        conn.close()
+def spills(pipeline_id: Optional[str] = None, conn=Depends(get_conn)):
+    result = db.list_spills(conn, pipeline_id)
     return result
 
 
 @app.get("/spills/{spill_id}")
-def get_spill(spill_id: str):
-    conn = db.connect()
-    try:
-        spill = db.get_spill(conn, spill_id)
-    finally:
-        conn.close()
+def get_spill(spill_id: str, conn=Depends(get_conn)):
+    spill = db.get_spill(conn, spill_id)
     if spill is None:
         return _spill_not_found()
     return spill
@@ -172,22 +170,21 @@ def get_spill(spill_id: str):
 
 @app.post("/spills/{spill_id}/status")
 def set_status(spill_id: str, update: StatusUpdate,
-               x_doude_actor: str = Header(default="demo-regulator")):
-    conn = db.connect()
+               x_doude_actor: str = Header(default="demo-regulator"),
+               conn=Depends(get_conn)):
     try:
         db.set_status(conn, spill_id, update.status, x_doude_actor, update.note)
     except ValueError as exc:
         return JSONResponse(status_code=400, content={
             "error": "invalid_transition", "message": str(exc)})
-    finally:
-        conn.close()
     return {"spill_id": spill_id, "status": update.status}
 
 
 @app.post("/spills/{spill_id}/evidence")
 async def add_evidence(spill_id: str, file: UploadFile = File(...),
                        note: Optional[str] = Form(None),
-                       x_doude_actor: str = Header(default="demo-regulator")):
+                       x_doude_actor: str = Header(default="demo-regulator"),
+                       conn=Depends(get_conn)):
     data = await file.read()
     if len(data) > db.MAX_EVIDENCE_BYTES:
         return JSONResponse(status_code=413, content={
@@ -195,24 +192,16 @@ async def add_evidence(spill_id: str, file: UploadFile = File(...),
     if (file.content_type or "") not in db.ALLOWED_CONTENT_TYPES:
         return JSONResponse(status_code=415, content={
             "error": "unsupported_content_type", "message": "unsupported file type"})
-    conn = db.connect()
-    try:
-        evidence = db.add_evidence(conn, spill_id, file.filename or "file",
-                                   file.content_type or "", data, note, x_doude_actor)
-    finally:
-        conn.close()
+    evidence = db.add_evidence(conn, spill_id, file.filename or "file",
+                               file.content_type or "", data, note, x_doude_actor)
     return evidence
 
 
 @app.get("/spills/{spill_id}/evidence/{evidence_id}")
-def get_evidence(spill_id: str, evidence_id: int):
-    conn = db.connect()
-    try:
-        row = conn.execute(
-            "SELECT * FROM evidence WHERE id = ? AND spill_id = ?",
-            (evidence_id, spill_id)).fetchone()
-    finally:
-        conn.close()
+def get_evidence(spill_id: str, evidence_id: int, conn=Depends(get_conn)):
+    row = conn.execute(
+        "SELECT * FROM evidence WHERE id = ? AND spill_id = ?",
+        (evidence_id, spill_id)).fetchone()
     if row is None:
         return JSONResponse(status_code=404, content={
             "error": "evidence_not_found", "message": "unknown evidence id"})
@@ -221,24 +210,16 @@ def get_evidence(spill_id: str, evidence_id: int):
 
 
 @app.get("/spills/{spill_id}/audit")
-def get_audit(spill_id: str):
-    conn = db.connect()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM audit_log WHERE spill_id = ? ORDER BY id",
-            (spill_id,)).fetchall()
-    finally:
-        conn.close()
+def get_audit(spill_id: str, conn=Depends(get_conn)):
+    rows = conn.execute(
+        "SELECT * FROM audit_log WHERE spill_id = ? ORDER BY id",
+        (spill_id,)).fetchall()
     return [dict(r) for r in rows]
 
 
 @app.get("/audit/verify")
-def audit_verify():
-    conn = db.connect()
-    try:
-        result = db.verify_audit_chain(conn)
-    finally:
-        conn.close()
+def audit_verify(conn=Depends(get_conn)):
+    result = db.verify_audit_chain(conn)
     return result
 
 
