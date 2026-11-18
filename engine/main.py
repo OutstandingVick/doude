@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
-from engine import db, forms, locate, pdf_report, report, reports
+from engine import db, forms, locate, pdf_report, report, reports, written
 
 ROOT = Path(__file__).resolve().parent.parent
 METHOD_VERSION = "doude-method v0.1"
@@ -29,6 +29,7 @@ async def lifespan(_app):
     conn = db.connect()
     try:
         db.init_db(conn)
+        written.init_tables(conn)
         db.upsert_pipeline_from_scenario(conn, locate.load_scenario())
     finally:
         conn.close()
@@ -340,6 +341,93 @@ def _report_filename(report_type: str, params: dict) -> str:
         if params.get(key):
             parts.append(str(params[key]))
     return "-".join(parts) + ".pdf"
+
+
+class WrittenReportIn(BaseModel):
+    kind: str
+    spill_id: str
+    title: Optional[str] = None
+    fields: dict = {}
+    sections: list = []
+    template_id: Optional[int] = None
+
+
+class TemplateIn(BaseModel):
+    name: str
+    kind: str
+    fields: dict = {}
+    sections: list = []
+
+
+def _form_error(exc):
+    return JSONResponse(status_code=exc.status, content={
+        "error": "invalid_report", "message": str(exc), "fields": exc.fields})
+
+
+@app.get("/reports/forms")
+def report_forms():
+    return {"forms": written.form_list(), "sections": written.SECTIONS}
+
+
+@app.get("/reports/forms/{kind}/prefill")
+def report_prefill(kind: str, spill_id: str, conn=Depends(get_conn)):
+    try:
+        return written.prefill(conn, kind, spill_id, locate.load_scenario())
+    except written.FormError as exc:
+        return _form_error(exc)
+
+
+@app.post("/reports/written")
+def create_written_report(body: WrittenReportIn,
+                          x_doude_actor: str = Header(default="demo-regulator"),
+                          conn=Depends(get_conn)):
+    try:
+        return written.create_report(conn, body.kind, body.spill_id, body.fields, body.sections,
+                                     body.title, x_doude_actor, locate.load_scenario(),
+                                     body.template_id)
+    except written.FormError as exc:
+        return _form_error(exc)
+
+
+@app.get("/reports/written")
+def list_written_reports(spill_id: Optional[str] = None, conn=Depends(get_conn)):
+    return written.list_reports(conn, spill_id)
+
+
+@app.get("/reports/written/{report_id}")
+def get_written_report(report_id: int, conn=Depends(get_conn)):
+    item = written.get_report(conn, report_id)
+    if item is None:
+        return JSONResponse(status_code=404, content={
+            "error": "report_not_found", "message": "unknown report"})
+    return item
+
+
+@app.get("/reports/templates")
+def list_report_templates(conn=Depends(get_conn)):
+    return written.list_templates(conn)
+
+
+@app.post("/reports/templates")
+def save_report_template(body: TemplateIn,
+                         x_doude_actor: str = Header(default="demo-regulator"),
+                         conn=Depends(get_conn)):
+    try:
+        return written.save_template(conn, body.name, body.kind, body.fields, body.sections,
+                                     x_doude_actor)
+    except written.FormError as exc:
+        return _form_error(exc)
+
+
+@app.delete("/reports/templates/{template_id}")
+def delete_report_template(template_id: int,
+                           x_doude_actor: str = Header(default="demo-regulator"),
+                           conn=Depends(get_conn)):
+    try:
+        written.delete_template(conn, template_id, x_doude_actor)
+    except written.FormError as exc:
+        return _form_error(exc)
+    return {"id": template_id, "deleted": True}
 
 
 @app.get("/reports/{report_type}.pdf")
