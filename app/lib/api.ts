@@ -6,7 +6,13 @@ import type {
   AuditVerification,
   Contact,
   EvidenceRecord,
+  FieldValues,
   FormAData,
+  FormSchema,
+  ReportSection,
+  ReportTemplate,
+  WrittenKind,
+  WrittenReport,
   PipelineRecord,
   ReportHistoryItem,
   ReportParams,
@@ -209,4 +215,63 @@ export async function generateReport(
 
 export function reportHistoryPdfUrl(entryId: number): string {
   return `${API_URL}/reports/history/${entryId}.pdf`;
+}
+
+export class ApiError extends Error {
+  fields: string[];
+  constructor(message: string, fields: string[] = []) {
+    super(message);
+    this.fields = fields;
+  }
+}
+
+async function send<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", "X-Doude-Actor": getActor() },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const data = (await response.json().catch(() => null)) as
+      | { message?: string; fields?: string[] }
+      | null;
+    throw new ApiError(data?.message || `Request failed (${response.status})`, data?.fields ?? []);
+  }
+  return response.json() as Promise<T>;
+}
+
+export function getReportForms(): Promise<{ forms: FormSchema[]; sections: ReportSection[] }> {
+  return request("/reports/forms");
+}
+
+export function getFormPrefill(kind: WrittenKind, spillId: string): Promise<FieldValues> {
+  return request(`/reports/forms/${kind}/prefill?spill_id=${encodeURIComponent(spillId)}`);
+}
+
+export function createWrittenReport(body: {
+  kind: WrittenKind;
+  spill_id: string;
+  title?: string;
+  fields: FieldValues;
+  sections: string[];
+  template_id?: number | null;
+}): Promise<WrittenReport> {
+  return send("/reports/written", "POST", body);
+}
+
+export function getReportTemplates(): Promise<ReportTemplate[]> {
+  return request("/reports/templates");
+}
+
+export function saveReportTemplate(body: {
+  name: string;
+  kind: WrittenKind;
+  fields: FieldValues;
+  sections: string[];
+}): Promise<ReportTemplate> {
+  return send("/reports/templates", "POST", body);
+}
+
+export function deleteReportTemplate(id: number): Promise<{ id: number; deleted: boolean }> {
+  return send(`/reports/templates/${id}`, "DELETE");
 }

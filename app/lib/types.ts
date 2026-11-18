@@ -284,10 +284,60 @@ export interface ReportParams {
 
 export interface ReportHistoryItem {
   id: number;
-  type: ReportTypeId;
+  type: ReportTypeId | `written-${WrittenKind}`;
   params: ReportParams;
   sha256: string;
   actor: string;
   at: string;
   spill_id: string | null;
+}
+
+export type WrittenKind = "form-a" | "form-b" | "form-c" | "custom";
+
+export interface FormField {
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "number" | "select" | "datetime";
+  required: boolean;
+  options?: string[];
+  hint?: string;
+}
+
+export interface FormSchema {
+  id: WrittenKind;
+  name: string;
+  description: string;
+  due: string | null;
+  fields: FormField[];
+}
+
+export interface ReportSection {
+  id: string;
+  name: string;
+}
+
+export type FieldValues = Record<string, string | number | null>;
+
+export interface WrittenReport {
+  id: number;
+  spill_id: string;
+  kind: WrittenKind;
+  title: string;
+  fields: FieldValues;
+  sections: string[];
+  template_id: number | null;
+  sha256: string;
+  created_by: string;
+  created_at: string;
+  history_id?: number;
+}
+
+export interface ReportTemplate {
+  id: number;
+  name: string;
+  kind: WrittenKind;
+  fields: FieldValues;
+  sections: string[];
+  created_by: string;
+  created_at: string;
 }
