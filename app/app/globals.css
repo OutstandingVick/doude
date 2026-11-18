@@ -133,9 +133,16 @@ body {
   border: none;
 }
 
+/* Tailwind preflight shrinks <img>; keep Leaflet tiles at their native size. */
+.leaflet-container img {
+  max-width: none !important;
+  height: auto;
+}
+
 /* Remove faint grid lines (tile seams) from the satellite basemap. */
 .leaflet-tile {
   image-rendering: -webkit-optimize-contrast;
+  border: 0;
 }
 
 /* Pulsing leak marker */
