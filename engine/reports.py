@@ -196,14 +196,16 @@ def _status_reached_at(audit: List[Dict], status: str) -> Optional[datetime]:
     return None
 
 
-def compliance_items(spill: Dict, audit: List[Dict], now: datetime) -> Dict:
+def compliance_items(spill: Dict, audit: List[Dict], now: datetime,
+                     form_a: Optional[Dict] = None) -> Dict:
     """Return the regulatory obligations for one spill.
 
     Due dates follow the dashboard's regulatory timeline: Form A 24 h after
     detection, JIV one day after shut-in, Form B 14 days and Form C 30 days
-    after detection. Doude v0.1 does not record filings separately, so an
-    obligation counts as met when the spill status reaches the matching stage
-    (Form A at JIV, JIV at JIV, Form B at clean-up, Form C at closed).
+    after detection. Form A is met when its filing is recorded
+    (``form_a_filed``). Forms B/C and the JIV are not filed separately in
+    Doude v0.1, so they count as met when the spill status reaches the
+    matching stage (JIV, clean-up, closed).
     """
     detected = _parse_ts(spill.get("detected_at"))
     shut_in = _parse_ts(spill.get("shut_in_at"))
@@ -219,8 +221,14 @@ def compliance_items(spill: Dict, audit: List[Dict], now: datetime) -> Dict:
         return {"name": name, "due": due, "done": done, "done_at": done_at,
                 "late": late, "overdue": overdue}
 
+    form_a_due = detected + timedelta(hours=24) if detected else None
+    filed_at = _parse_ts(form_a.get("filed_at")) if form_a else None
     items = [
-        item("Form A", detected + timedelta(hours=24) if detected else None, "jiv"),
+        {"name": "Form A", "due": form_a_due, "done": bool(form_a), "done_at": filed_at,
+         "late": bool(form_a_due and ((filed_at and filed_at > form_a_due)
+                                      or (not form_a and now > form_a_due))),
+         "overdue": bool(form_a_due and not form_a and now > form_a_due),
+         "reference": (form_a or {}).get("reference")},
         item("JIV", shut_in + timedelta(days=1) if shut_in else None, "jiv"),
         item("Form B", detected + timedelta(days=14) if detected else None, "cleanup"),
         item("Form C", detected + timedelta(days=30) if detected else None, "closed"),
@@ -233,7 +241,9 @@ def compliance_items(spill: Dict, audit: List[Dict], now: datetime) -> Dict:
 def _item_cell(it: Dict) -> str:
     if it["done"]:
         when = _fmt_day(it["done_at"]) if it["done_at"] else "done"
-        text = "Done %s" % when
+        text = "%s %s" % ("Filed" if it["name"] == "Form A" else "Done", when)
+        if it.get("reference"):
+            text += "<br/>ref %s" % _escape(str(it["reference"]))
         return text + (" <font color='#EF4444'>(late)</font>" if it["late"] else "")
     due = "due %s" % _fmt_day(it["due"])
     if it["overdue"]:
@@ -249,7 +259,7 @@ def build_compliance(conn, pipeline_id: Optional[str], now: Optional[datetime] =
         audit = [dict(a) for a in conn.execute(
             "SELECT action, at, detail_json FROM audit_log WHERE spill_id = ? ORDER BY id",
             (s["id"],)).fetchall()]
-        c = compliance_items(s, audit, now)
+        c = compliance_items(s, audit, now, db.form_a_status(conn, s["id"]))
         overdue = sum(1 for it in c["items"] if it["overdue"])
         overdue_total += overdue
         if overdue:
@@ -280,9 +290,10 @@ def build_compliance(conn, pipeline_id: Optional[str], now: Optional[datetime] =
         story.append(_P("No spills recorded for this scope.", "body"))
     story += [Spacer(1, 4 * mm), _P(
         "Due dates: Form A 24 h after detection; JIV 1 day after shut-in; Form B 14 days and "
-        "Form C 30 days after detection. Doude v0.1 does not record filings separately: an "
-        "item counts as met when the spill status reaches JIV (Form A, JIV), clean-up "
-        "(Form B) or closed (Form C). Rows with overdue items are highlighted.", "small")]
+        "Form C 30 days after detection. Form A is met when its filing is recorded in Doude. "
+        "JIV, Form B and Form C are not filed separately in v0.1: they count as met when the "
+        "spill status reaches JIV, clean-up or closed. Rows with overdue items are "
+        "highlighted.", "small")]
     return _build(story, "Doude Compliance Status Report", "compliance")
 
 

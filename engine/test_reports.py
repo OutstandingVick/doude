@@ -60,6 +60,10 @@ def test_compliance_report(client):
     assert "Compliance Status Report" in text
     assert client.spill_id in text
     assert "OVERDUE" in text  # scenario detection is weeks in the past
+    client.post("/spills/%s/forms/a/filed" % client.spill_id,
+                json={"reference": "NOS-TEST-1", "filed_at": "2026-11-04T10:00:00Z"})
+    text = _text(client.get("/reports/compliance.pdf"))
+    assert "Filed 04 Nov 2026" in text
     pipeline = client.get("/pipelines").json()[0]["id"]
     text = _text(client.get("/reports/compliance.pdf", params={"pipeline_id": pipeline}))
     assert "Pipeline %s" % pipeline in text
@@ -127,11 +131,13 @@ def test_compliance_rules():
     assert by_name["Form A"]["overdue"] and by_name["JIV"]["overdue"]
     assert by_name["Form B"]["overdue"] and not by_name["Form C"]["overdue"]
     assert c["days_open"] == 14
-    audit = [{"action": "status_changed", "at": "2026-11-05T09:00:00Z",
+    filed = {"filed": True, "filed_at": "2026-11-05T09:00:00Z", "reference": "NOS-1"}
+    audit = [{"action": "status_changed", "at": "2026-11-06T09:00:00Z",
               "detail_json": '{"from": "detected", "to": "jiv"}'}]
-    c = reports.compliance_items(dict(spill, status="jiv"), audit, now)
-    form_a = c["items"][0]
+    c = reports.compliance_items(dict(spill, status="jiv"), audit, now, filed)
+    form_a, jiv = c["items"][0], c["items"][1]
     assert form_a["done"] and form_a["late"] and not form_a["overdue"]
+    assert jiv["done"] and not jiv["late"]
 
 
 def test_no_ground_truth_in_report_source():
