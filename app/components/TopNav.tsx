@@ -20,7 +20,7 @@ function SearchField() {
   }
 
   return (
-    <form onSubmit={submit} className="relative w-[420px] max-w-full">
+    <form onSubmit={submit} className="relative w-full">
       <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
       <input
         type="text"
@@ -73,7 +73,7 @@ export function TopNav() {
         <Menu className="h-[18px] w-[18px]" />
       </button>
 
-      <div className="shrink-0">
+      <div className="min-w-[220px] flex-1">
         <SearchField />
       </div>
 
@@ -88,7 +88,7 @@ export function TopNav() {
             </div>
           ) : (
             <InfoChip
-              className="hidden min-[1280px]:flex"
+              className="hidden min-[1440px]:flex"
               label="Pipeline"
               value={
                 scenario?.pipeline
