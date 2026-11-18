@@ -65,6 +65,19 @@ make demo         # data + engine (:8000) + app (:3000)
 
 Then open http://localhost:3000.
 
+### Resetting the local database (dev only)
+
+The audit log is append-only and is never edited or repaired in place. To
+start from a clean local state, stop the engine and run:
+
+```bash
+python -m engine.db --reset-dev
+```
+
+It lists what it will delete (`data/doude.db` with its WAL files, and
+`data/evidence/`) and asks you to type `reset` before deleting anything.
+Restart the engine afterwards to recreate an empty database.
+
 ## API
 
 | Method | Path | Purpose |

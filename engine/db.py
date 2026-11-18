@@ -357,3 +357,43 @@ def add_evidence(conn: sqlite3.Connection, spill_id: str, filename: str,
         )
         log(conn, spill_id, "evidence_added", actor, {"sha256": sha, "filename": safe})
     return dict(conn.execute("SELECT * FROM evidence WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+def reset_dev(db_path: Optional[str] = None, assume_yes: bool = False) -> bool:
+    """Delete the local dev database (plus WAL files) and stored evidence.
+
+    Development only: this throws away the audit log rather than repairing it.
+    Returns True when files were deleted.
+    """
+    import shutil
+
+    target = Path(db_path or os.environ.get("DOUDE_DB") or str(DEFAULT_DB))
+    paths = [target, Path(str(target) + "-wal"), Path(str(target) + "-shm")]
+    print("This permanently deletes:")
+    for p in paths + [EVIDENCE_DIR]:
+        print("  " + str(p))
+    if not assume_yes:
+        answer = input("Type 'reset' to continue: ").strip()
+        if answer != "reset":
+            print("Aborted; nothing deleted.")
+            return False
+    for p in paths:
+        if p.exists():
+            p.unlink()
+    if EVIDENCE_DIR.exists():
+        shutil.rmtree(EVIDENCE_DIR)
+    print("Local database and evidence removed. Restart the engine to recreate them.")
+    return True
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Doude database utilities")
+    parser.add_argument("--reset-dev", action="store_true",
+                        help="delete data/doude.db and data/evidence (asks for confirmation)")
+    parser.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
+    args = parser.parse_args()
+    if args.reset_dev:
+        reset_dev(assume_yes=args.yes)
+    else:
+        parser.print_help()
