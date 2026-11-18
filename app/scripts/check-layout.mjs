@@ -83,7 +83,6 @@ async function runViewport(browser, vp) {
       const tb = toolbar ? toolbar.getBoundingClientRect() : null;
       const zb = zoomLeak ? zoomLeak.getBoundingClientRect() : null;
 
-      let routePath = null;
       const paths = [...mapCard.querySelectorAll("path.leaflet-interactive")];
       let best = null;
       let bestArea = -1;
@@ -94,8 +93,7 @@ async function runViewport(browser, vp) {
           const area = pr.width * pr.height;
           if (area > bestArea) {
             bestArea = area;
-            best = { w: round1(pr.width), h: round1(pr.height), path: p };
-            routePath = p;
+            best = { w: round1(pr.width), h: round1(pr.height) };
           }
         }
       }
@@ -120,8 +118,6 @@ async function runViewport(browser, vp) {
 
     return out;
   });
-
-  const P = (cond, detail) => record(vp, "", cond, detail);
 
   // 1. no horizontal overflow
   const hOverflow = m.scrollWidth <= vp.width + 1;

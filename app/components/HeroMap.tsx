@@ -40,13 +40,30 @@ interface LayerState {
   sensors: boolean;
 }
 
-function FitBounds({ points }: { points: [number, number][] }) {
+function AutoFit({ bounds }: { bounds: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
-    if (points.length > 0) {
-      map.fitBounds(L.latLngBounds(points), { padding: [40, 40], paddingTopLeft: [260, 24] });
-    }
-  }, [map, points]);
+    if (bounds.length < 2) return;
+    let raf = 0;
+    const fit = () => {
+      window.cancelAnimationFrame(raf);
+      raf = window.requestAnimationFrame(() => {
+        map.invalidateSize();
+        map.fitBounds(L.latLngBounds(bounds), {
+          paddingTopLeft: [220, 32],
+          paddingBottomRight: [32, 96],
+        });
+      });
+    };
+    fit();
+    const container = map.getContainer();
+    const ro = new ResizeObserver(fit);
+    ro.observe(container);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [map, bounds]);
   return null;
 }
 
@@ -69,13 +86,20 @@ function MapLayers({
   basemap: Basemap;
   layers: LayerState;
 }) {
-  const routeLatLng = scenario.pipeline.route_lonlat.map(toLatLng);
-  const leak = analysis.leak ? toLatLng(analysis.leak.location_lonlat) : null;
+  const routeLatLng = useMemo(
+    () => scenario.pipeline.route_lonlat.map(toLatLng),
+    [scenario.pipeline.route_lonlat],
+  );
+  const leak = useMemo(
+    () => (analysis.leak ? toLatLng(analysis.leak.location_lonlat) : null),
+    [analysis.leak],
+  );
   const uncertaintyM = analysis.leak?.location_uncertainty_m;
-  const slickPolygon =
-    analysis.impact?.polygon_lonlat?.length
-      ? analysis.impact.polygon_lonlat.map(toLatLng)
-      : null;
+  const impactPolygon = analysis.impact?.polygon_lonlat;
+  const slickPolygon = useMemo(
+    () => (impactPolygon?.length ? impactPolygon.map(toLatLng) : null),
+    [impactPolygon],
+  );
 
   const inletIcon = useMemo(
     () =>
@@ -110,6 +134,13 @@ function MapLayers({
 
   const interior = routeLatLng.slice(1, -1);
 
+  const fitBounds = useMemo(() => {
+    const pts: [number, number][] = [...routeLatLng];
+    if (leak) pts.push(leak);
+    if (slickPolygon) pts.push(...slickPolygon);
+    return pts;
+  }, [routeLatLng, leak, slickPolygon]);
+
   return (
     <>
       <TileLayer
@@ -117,7 +148,7 @@ function MapLayers({
         attribution={basemap === "dark" ? DARK_ATTRIBUTION : SATELLITE_ATTRIBUTION}
         className="map-tiles"
       />
-      <FitBounds points={routeLatLng} />
+      <AutoFit bounds={fitBounds} />
 
       {layers.pipeline && routeLatLng.length > 1 && (
         <Polyline positions={routeLatLng} pathOptions={{ color: ROUTE_COLOR, weight: 3, opacity: 0.95 }} />
@@ -318,7 +349,7 @@ export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = "
       <MapContainer
         center={center}
         zoom={11}
-        zoomSnap={1}
+        zoomSnap={0.25}
         zoomControl={false}
         style={{ height, width: "100%" }}
         className="z-0"
@@ -389,7 +420,7 @@ export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = "
           <MapContainer
             center={center}
             zoom={11}
-            zoomSnap={1}
+            zoomSnap={0.25}
             zoomControl={false}
             style={{ height: "100vh", width: "100vw" }}
           >
