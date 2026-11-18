@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Copy, Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Upload, X } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useAnalysis } from "@/components/AnalysisProvider";
 import { Tabs } from "@/components/Tabs";
 import { StatusPill, type PulseTone } from "@/components/StatusPill";
@@ -61,13 +61,29 @@ const NEXT: Record<SpillStatus, SpillStatus | null> = {
   closed: null,
 };
 
+const TAB_ALIASES: Record<string, string> = {
+  audit: "Audit log",
+  overview: "Overview",
+  quantification: "Quantification",
+  impact: "Impact",
+  integrity: "Integrity",
+  forms: "Regulatory forms",
+  evidence: "Evidence",
+};
+
 export default function SpillDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const spillId = Array.isArray(params?.id) ? params.id[0] : (params?.id as string);
   const { scenario } = useAnalysis();
   const [spill, setSpill] = useState<SpillDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState(TAB_ITEMS[0]);
+  const [tab, setTab] = useState(() => {
+    const q = searchParams.get("tab");
+    if (!q) return TAB_ITEMS[0];
+    const mapped = TAB_ALIASES[q.toLowerCase()] ?? (TAB_ITEMS.includes(q) ? q : TAB_ITEMS[0]);
+    return mapped;
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [note, setNote] = useState("");
   const [advancing, setAdvancing] = useState(false);
@@ -677,6 +693,9 @@ const ACTION_LABELS: Record<string, string> = {
   analysis_no_spill: "Analysis (no spill)",
   status_changed: "Status changed",
   evidence_added: "Evidence added",
+  form_a_filed: "Form A filed",
+  contact_added: "Contact added",
+  contact_removed: "Contact removed",
 };
 
 function summarizeDetail(entry: AuditEntry): string {
@@ -685,6 +704,9 @@ function summarizeDetail(entry: AuditEntry): string {
     if (entry.action === "status_changed") return `${d.from ?? ""} → ${d.to ?? ""}${d.note ? ` · ${d.note}` : ""}`;
     if (entry.action === "evidence_added") return `${d.filename ?? ""} · ${shortHash(d.sha256 ?? "")}`;
     if (entry.action === "analysis_rerun_identical") return shortHash(d.report_hash ?? "");
+    if (entry.action === "form_a_filed") return `${d.reference ?? ""}${d.late ? " · late" : ""}`;
+    if (entry.action === "contact_added") return d.name ?? "";
+    if (entry.action === "contact_removed") return d.name ?? "";
     return d.pipeline_id ?? "";
   } catch {
     return entry.detail_json ?? "";
