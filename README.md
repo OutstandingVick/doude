@@ -75,7 +75,7 @@ python -m engine.db --reset-dev
 ```
 
 It lists what it will delete (`data/doude.db` with its WAL files, and
-`data/evidence/`) and asks you to type `reset` before deleting anything.
+`data/evidence/`, generated reports in `data/reports/`) and asks you to type `reset` before deleting anything.
 Restart the engine afterwards to recreate an empty database.
 
 ## API

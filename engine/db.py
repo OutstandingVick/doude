@@ -17,6 +17,7 @@ from typing import Dict, Iterator, List, Optional
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = ROOT / "data" / "doude.db"
 EVIDENCE_DIR = ROOT / "data" / "evidence"
+REPORTS_DIR = ROOT / "data" / "reports"
 
 MAX_EVIDENCE_BYTES = 10 * 1024 * 1024
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "application/pdf", "text/csv"}
@@ -522,6 +523,61 @@ def remove_contact(conn, contact_id, actor):
         conn.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))
         log(conn, None, "contact_removed", actor, {"id": contact_id, "name": row["name"]})
 
+def record_report(conn: sqlite3.Connection, report_type: str, params: Dict,
+                  pdf_bytes: bytes, actor: Optional[str] = None) -> Dict:
+    """Store a generated report PDF and log ``report_generated``.
+
+    The file is kept under ``data/reports/<sha256>.pdf`` so a re-download
+    returns exactly the bytes whose fingerprint is in the audit log.
+    """
+    actor = actor or "demo-regulator"
+    sha = hashlib.sha256(pdf_bytes).hexdigest()
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    path = REPORTS_DIR / ("%s.pdf" % sha)
+    if not path.exists():
+        path.write_bytes(pdf_bytes)
+    detail = {"type": report_type, "params": params, "sha256": "sha256:" + sha}
+    log(conn, params.get("spill_id"), "report_generated", actor, detail)
+    row = conn.execute(
+        "SELECT * FROM audit_log WHERE action = 'report_generated' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    return _history_item(row)
+
+
+def _history_item(row) -> Dict:
+    detail = json.loads(row["detail_json"]) if row["detail_json"] else {}
+    return {
+        "id": row["id"],
+        "type": detail.get("type"),
+        "params": detail.get("params") or {},
+        "sha256": detail.get("sha256"),
+        "actor": row["actor"],
+        "at": row["at"],
+        "spill_id": row["spill_id"],
+    }
+
+
+def report_history(conn: sqlite3.Connection, limit: int = 50) -> List[Dict]:
+    """Return generated reports (newest first) from the audit log."""
+    rows = conn.execute(
+        "SELECT * FROM audit_log WHERE action = 'report_generated' ORDER BY id DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [_history_item(r) for r in rows]
+
+
+def report_file(conn: sqlite3.Connection, entry_id: int) -> Optional[Path]:
+    """Return the stored PDF for a ``report_generated`` audit entry, if present."""
+    row = conn.execute(
+        "SELECT * FROM audit_log WHERE id = ? AND action = 'report_generated'", (entry_id,)
+    ).fetchone()
+    if row is None:
+        return None
+    sha = (_history_item(row).get("sha256") or "").replace("sha256:", "")
+    path = REPORTS_DIR / ("%s.pdf" % sha)
+    return path if sha and path.exists() else None
+
+
 def reset_dev(db_path: Optional[str] = None, assume_yes: bool = False) -> bool:
     """Delete the local dev database (plus WAL files) and stored evidence.
 
@@ -533,7 +589,7 @@ def reset_dev(db_path: Optional[str] = None, assume_yes: bool = False) -> bool:
     target = Path(db_path or os.environ.get("DOUDE_DB") or str(DEFAULT_DB))
     paths = [target, Path(str(target) + "-wal"), Path(str(target) + "-shm")]
     print("This permanently deletes:")
-    for p in paths + [EVIDENCE_DIR]:
+    for p in paths + [EVIDENCE_DIR, REPORTS_DIR]:
         print("  " + str(p))
     if not assume_yes:
         answer = input("Type 'reset' to continue: ").strip()
@@ -543,8 +599,9 @@ def reset_dev(db_path: Optional[str] = None, assume_yes: bool = False) -> bool:
     for p in paths:
         if p.exists():
             p.unlink()
-    if EVIDENCE_DIR.exists():
-        shutil.rmtree(EVIDENCE_DIR)
+    for folder in (EVIDENCE_DIR, REPORTS_DIR):
+        if folder.exists():
+            shutil.rmtree(folder)
     print("Local database and evidence removed. Restart the engine to recreate them.")
     return True
 
@@ -554,7 +611,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Doude database utilities")
     parser.add_argument("--reset-dev", action="store_true",
-                        help="delete data/doude.db and data/evidence (asks for confirmation)")
+                        help="delete data/doude.db, data/evidence and data/reports (asks for confirmation)")
     parser.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
     args = parser.parse_args()
     if args.reset_dev:

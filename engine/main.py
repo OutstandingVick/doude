@@ -14,10 +14,10 @@ from typing import Iterator, Optional
 
 from fastapi import Depends, FastAPI, File, Form, Header, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
-from engine import db, forms, locate, pdf_report, report
+from engine import db, forms, locate, pdf_report, report, reports
 
 ROOT = Path(__file__).resolve().parent.parent
 METHOD_VERSION = "doude-method v0.1"
@@ -311,6 +311,66 @@ def form_a_json():
     response = report.analyze()
     scenario = locate.load_scenario()
     return forms.form_a_data(response, scenario)
+
+
+@app.get("/reports/types")
+def report_types():
+    return reports.REPORT_TYPES
+
+
+@app.get("/reports/history")
+def report_history(limit: int = Query(50, ge=1, le=500), conn=Depends(get_conn)):
+    return db.report_history(conn, limit)
+
+
+@app.get("/reports/history/{entry_id}.pdf")
+def report_history_file(entry_id: int, conn=Depends(get_conn)):
+    path = db.report_file(conn, entry_id)
+    if path is None:
+        return JSONResponse(status_code=404, content={
+            "error": "report_not_found", "message": "no stored PDF for this entry"})
+    item = next((h for h in db.report_history(conn, 500) if h["id"] == entry_id), {})
+    return FileResponse(path, media_type="application/pdf",
+                        filename=_report_filename(item.get("type") or "report", item.get("params") or {}))
+
+
+def _report_filename(report_type: str, params: dict) -> str:
+    parts = ["doude", report_type]
+    for key in ("spill_id", "pipeline_id", "from", "to"):
+        if params.get(key):
+            parts.append(str(params[key]))
+    return "-".join(parts) + ".pdf"
+
+
+@app.get("/reports/{report_type}.pdf")
+def report_pdf_typed(
+    report_type: str,
+    spill_id: Optional[str] = None,
+    pipeline_id: Optional[str] = None,
+    date_from: Optional[str] = Query(None, alias="from"),
+    date_to: Optional[str] = Query(None, alias="to"),
+    download: bool = False,
+    x_doude_actor: str = Header(default="demo-regulator"),
+    conn=Depends(get_conn),
+):
+    if report_type not in reports.REPORT_TYPE_IDS:
+        return JSONResponse(status_code=404, content={
+            "error": "unknown_report_type", "message": "unknown report type"})
+    try:
+        data, params = reports.generate(
+            conn, report_type, locate.load_scenario(), spill_id=spill_id,
+            pipeline_id=pipeline_id, date_from=date_from, date_to=date_to)
+    except reports.ReportError as exc:
+        return JSONResponse(status_code=exc.status, content={
+            "error": "invalid_report_request", "message": str(exc)})
+    entry = db.record_report(conn, report_type, params, data, x_doude_actor)
+    disposition = "attachment" if download else "inline"
+    return Response(content=data, media_type="application/pdf", headers={
+        "Content-Disposition": '%s; filename="%s"' % (disposition, _report_filename(report_type, params)),
+        "X-Report-Sha256": entry["sha256"],
+        "X-Report-Entry": str(entry["id"]),
+        "Access-Control-Expose-Headers": "X-Report-Sha256, X-Report-Entry",
+    })
 
 
 @app.exception_handler(FileNotFoundError)
