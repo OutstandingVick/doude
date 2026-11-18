@@ -15,29 +15,38 @@ export interface SpillSnapshotProps {
 }
 
 const REGION = "Bayelsa";
+const TILE_ZOOM = 13;
+
+function tilePosition(lon: number, lat: number) {
+  const n = 2 ** TILE_ZOOM;
+  const x = ((lon + 180) / 360) * n;
+  const latRad = (lat * Math.PI) / 180;
+  const y = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+  return { tx: Math.floor(x), ty: Math.floor(y), fx: x - Math.floor(x), fy: y - Math.floor(y) };
+}
 
 function satelliteTileUrl(lon: number, lat: number): string {
-  const z = 15;
-  const n = 2 ** z;
-  const x = Math.floor(((lon + 180) / 360) * n);
-  const latRad = (lat * Math.PI) / 180;
-  const y = Math.floor(
-    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n,
-  );
-  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+  const { tx, ty } = tilePosition(lon, lat);
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${TILE_ZOOM}/${ty}/${tx}`;
 }
 
 export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSnapshotProps) {
   const leak = analysis.leak;
   const images = evidence.filter((e) => e.content_type.startsWith("image/"));
   const hasEvidence = images.length > 0;
+
+  const dot = !hasEvidence && leak
+    ? (() => {
+        const { fx, fy } = tilePosition(leak.location_lonlat[0], leak.location_lonlat[1]);
+        return { x: fx * 100, y: fy * 100 };
+      })()
+    : null;
+
   const centerSrc = hasEvidence
     ? evidenceUrl(spillId, images[0].id)
     : leak
       ? satelliteTileUrl(leak.location_lonlat[0], leak.location_lonlat[1])
       : null;
-  const leftSrc = images[1] ? evidenceUrl(spillId, images[1].id) : null;
-  const rightSrc = images[2] ? evidenceUrl(spillId, images[2].id) : null;
 
   const terrain = leak?.terrain === "water" ? "Water" : "Land";
 
@@ -48,13 +57,25 @@ export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSn
         <ExpandButton />
       </div>
 
-      <div className="mt-4 flex items-center justify-center gap-3 overflow-hidden py-1">
-        <Tile src={leftSrc} placeholder={!hasEvidence} className="h-24 w-20" />
-        <Tile src={centerSrc} className="h-[120px] w-[140px]" />
-        <Tile src={rightSrc} placeholder={!hasEvidence} className="h-24 w-20" />
+      <div className="mt-3 -mx-5 flex items-center justify-center gap-3 overflow-hidden py-1">
+        <div className="h-24 w-24 shrink-0 rounded-[14px] bg-gradient-to-br from-surface2 to-primary/25 opacity-60" />
+        <div className="relative h-[120px] w-[140px] shrink-0 overflow-hidden rounded-[14px]">
+          {centerSrc ? (
+            <img src={centerSrc} alt="Spill" className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-surface2" />
+          )}
+          {dot && (
+            <span
+              className="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-danger ring-2 ring-white"
+              style={{ left: `${dot.x}%`, top: `${dot.y}%` }}
+            />
+          )}
+        </div>
+        <div className="h-24 w-24 shrink-0 rounded-[14px] bg-gradient-to-br from-surface2 to-primary/25 opacity-60" />
       </div>
 
-      <div className="mt-4 text-[15px] font-medium text-text">
+      <div className="mt-3 text-[15px] font-medium text-text">
         {spillId} · {REGION}
       </div>
       <div className="mt-0.5 text-[11px] text-faint">
@@ -63,14 +84,14 @@ export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSn
       </div>
 
       {leak && (
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-3 gap-2">
           <Stat value={formatKm(leak.location_m)} label="Location" />
           <Stat value={`±${leak.location_uncertainty_m} m`} label="Uncertainty" />
           <Stat value={`${roundHalfUp(leak.duration_hours, 1)} h`} label="Duration" />
         </div>
       )}
 
-      <div className="mt-auto flex items-end justify-between gap-3 pt-4">
+      <div className="mt-3 flex items-end justify-between gap-3">
         <div className="flex items-center gap-2">
           <VerifyPill />
           <button type="button" aria-label="More info" className="icon-btn h-8 w-8">
@@ -85,9 +106,9 @@ export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSn
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div>
-      <div className="text-[15px] font-medium tabular-nums text-text">{value}</div>
-      <div className="text-[11px] text-faint">{label}</div>
+    <div className="min-w-0">
+      <div className="whitespace-nowrap text-[15px] font-medium tabular-nums text-text">{value}</div>
+      <div className="whitespace-nowrap text-[11px] text-faint">{label}</div>
     </div>
   );
 }
@@ -105,18 +126,10 @@ function VerifyPill() {
   }
 
   if (state === "ok") {
-    return (
-      <span className="pill bg-primary font-medium text-text">
-        Verified ✓
-      </span>
-    );
+    return <span className="pill bg-primary font-medium text-text">Verified ✓</span>;
   }
   if (state === "bad") {
-    return (
-      <span className="pill bg-danger/15 font-medium text-danger">
-        Mismatch
-      </span>
-    );
+    return <span className="pill bg-danger/15 font-medium text-danger">Mismatch</span>;
   }
   return (
     <button
@@ -126,30 +139,6 @@ function VerifyPill() {
     >
       Verify
     </button>
-  );
-}
-
-function Tile({
-  src,
-  placeholder,
-  className,
-}: {
-  src: string | null;
-  placeholder?: boolean;
-  className: string;
-}) {
-  return (
-    <div className={`shrink-0 overflow-hidden rounded-[14px] ${className}`}>
-      {src ? (
-        <img src={src} alt="Spill" className="h-full w-full object-cover" />
-      ) : placeholder ? (
-        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-surface2 to-primary/40 text-center text-[11px] leading-tight text-faint">
-          Upload JIV photo
-        </div>
-      ) : (
-        <div className="h-full w-full bg-surface2" />
-      )}
-    </div>
   );
 }
 
