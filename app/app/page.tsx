@@ -18,7 +18,7 @@ const HeroMap = dynamic(
 );
 
 const GRID =
-  "grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-12 xl:grid-rows-[minmax(0,1fr)_minmax(0,1fr)]";
+  "grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-12 xl:grid-rows-[minmax(0,1fr)_minmax(0,1fr)]";
 
 export default function Dashboard() {
   const { analysis, scenario, readings, loading, error, runAnalysis } = useAnalysis();

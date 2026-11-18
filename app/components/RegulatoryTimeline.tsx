@@ -53,7 +53,7 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
 
   const rows: Row[] = [
     { date: detected, title: "Leak detected", subtitle: `${spillId} · auto-recorded`, pill: "Done", done: true },
-    { date: addDays(detected, 1), title: "Form A due (24 h)", subtitle: "Notification to NOSDRA", pill: "Draft ready", current: true, href: formAPdfUrl(spillId) },
+    { date: addDays(detected, 1), title: "Form A due (24 h)", subtitle: "Notification to NOSDRA", pill: "Draft", current: true, href: formAPdfUrl(spillId) },
     { date: shutIn, title: "Line shut in", subtitle: "After JIV · trunk line", pill: "Done", done: true },
     { date: addDays(shutIn, 1), title: "JIV inspection", subtitle: "Joint inspection of the breach", pill: statusIndex >= 1 ? "Done" : "Upcoming", done: statusIndex >= 1 },
     { date: addDays(detected, 14), title: "Form B (2 weeks)", subtitle: "Spill response report", pill: "Upcoming" },
@@ -86,9 +86,9 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
           return (
             <div
               key={i}
-              className="flex h-16 items-center gap-3 rounded-[14px] bg-surface2 px-3"
+              className="flex min-h-16 items-center gap-3 rounded-[14px] bg-surface2 px-3 py-2"
             >
-              <div className="w-11 shrink-0 text-center">
+              <div className="w-9 shrink-0 text-center">
                 <div className="text-xs text-faint">{weekday}</div>
                 <div
                   className={`text-[22px] font-medium leading-none ${
@@ -99,20 +99,8 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
                 </div>
               </div>
 
-              <div className="flex shrink-0 -space-x-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green text-[9px] font-semibold text-white ring-2 ring-surface2">
-                  NO
-                </span>
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-info/80 text-[9px] font-semibold text-white ring-2 ring-surface2">
-                  OP
-                </span>
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface3 text-[9px] font-semibold text-muted ring-2 ring-surface2">
-                  +1
-                </span>
-              </div>
-
               <div className="min-w-0 flex-1">
-                <div data-timeline-title className="truncate text-sm font-medium text-text">{row.title}</div>
+                <div data-timeline-title className="text-sm font-medium leading-snug text-text">{row.title}</div>
                 <div className="truncate text-[11px] text-faint">{row.subtitle}</div>
               </div>
 

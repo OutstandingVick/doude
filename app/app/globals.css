@@ -103,6 +103,7 @@ body {
 }
 
 body {
+  display: flow-root;
   background: linear-gradient(135deg, #f4f6f0 0%, #eef6da 100%);
   background-attachment: fixed;
   min-height: 100vh;
