@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, Search, SlidersHorizontal, Settings } from "lucide-react";
+import { Bell, Menu, Search, SlidersHorizontal, Settings } from "lucide-react";
 import { getSpills } from "@/lib/api";
 import { useAnalysis } from "@/components/AnalysisProvider";
 import { formatDateTime } from "@/lib/format";
@@ -62,24 +62,36 @@ export function TopNav() {
 
   return (
     <header className="mb-6">
-      <div className="flex items-center justify-end gap-2">
-        <button type="button" aria-label="Settings" className="icon-btn">
-          <Settings className="h-[18px] w-[18px]" />
-        </button>
-        <button type="button" aria-label="Notifications" className="icon-btn relative">
-          <Bell className="h-[18px] w-[18px]" />
-          {hasDetected && (
-            <span
-              aria-label="New detected spill"
-              className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-danger"
-            />
-          )}
-        </button>
-        <div
-          aria-label="Account"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-green text-sm font-semibold text-white"
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          aria-label="Open menu"
+          onClick={() => {
+            window.dispatchEvent(new Event("doude:open-drawer"));
+          }}
+          className="icon-btn md:hidden"
         >
-          {USER_INITIALS}
+          <Menu className="h-[18px] w-[18px]" />
+        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button type="button" aria-label="Settings" className="icon-btn">
+            <Settings className="h-[18px] w-[18px]" />
+          </button>
+          <button type="button" aria-label="Notifications" className="icon-btn relative">
+            <Bell className="h-[18px] w-[18px]" />
+            {hasDetected && (
+              <span
+                aria-label="New detected spill"
+                className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-danger"
+              />
+            )}
+          </button>
+          <div
+            aria-label="Account"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-green text-sm font-semibold text-white"
+          >
+            {USER_INITIALS}
+          </div>
         </div>
       </div>
 
