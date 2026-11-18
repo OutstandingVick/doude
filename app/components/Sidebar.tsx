@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   CircleHelp,
   ChevronsLeft,
@@ -41,18 +41,17 @@ function readStoredCollapsed(): boolean {
 }
 
 function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia(query).matches,
+  // useSyncExternalStore renders the server value (false) during hydration
+  // and then switches to the real value, avoiding a hydration mismatch.
+  return useSyncExternalStore(
+    (onChange) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
   );
-  useEffect(() => {
-    const mql = window.matchMedia(query);
-    function handler(e: MediaQueryListEvent) {
-      setMatches(e.matches);
-    }
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
-  }, [query]);
-  return matches;
 }
 
 export function Sidebar() {
@@ -64,7 +63,7 @@ export function Sidebar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const isMobile = useMediaQuery("(max-width: 767px)");
-  const isNarrow = useMediaQuery("(max-width: 1023px)");
+  const isNarrow = useMediaQuery("(max-width: 1279px)");
 
   useEffect(() => {
     let cancelled = false;
