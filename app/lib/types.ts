@@ -262,3 +262,32 @@ export interface ScenarioResponse {
 }
 
 export const API_URL = process.env.NEXT_PUBLIC_DOUDE_API ?? "http://localhost:8000";
+
+export type ReportScope = "spill" | "pipeline" | "period";
+export type ReportTypeId = "spill" | "form-a" | "compliance" | "audit" | "period";
+
+export interface ReportType {
+  id: ReportTypeId;
+  name: string;
+  description: string;
+  scope: ReportScope;
+  /** Parameter names; a trailing "?" marks an optional one. */
+  params: string[];
+}
+
+export interface ReportParams {
+  spill_id?: string | null;
+  pipeline_id?: string | null;
+  from?: string | null;
+  to?: string | null;
+}
+
+export interface ReportHistoryItem {
+  id: number;
+  type: ReportTypeId;
+  params: ReportParams;
+  sha256: string;
+  actor: string;
+  at: string;
+  spill_id: string | null;
+}

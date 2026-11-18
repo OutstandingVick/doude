@@ -7,6 +7,11 @@ import type {
   Contact,
   EvidenceRecord,
   FormAData,
+  PipelineRecord,
+  ReportHistoryItem,
+  ReportParams,
+  ReportType,
+  ReportTypeId,
   HealthResponse,
   Notification,
   ReadingsResponse,
@@ -153,4 +158,55 @@ export function addContact(
 
 export function removeContact(id: number): Promise<{ id: number; removed: boolean }> {
   return request(`/contacts/${id}`, { method: "DELETE" });
+}
+export function getPipelines(): Promise<PipelineRecord[]> {
+  return request<PipelineRecord[]>("/pipelines");
+}
+
+export function getReportTypes(): Promise<ReportType[]> {
+  return request<ReportType[]>("/reports/types");
+}
+
+export function getReportHistory(): Promise<ReportHistoryItem[]> {
+  return request<ReportHistoryItem[]>("/reports/history");
+}
+
+function reportQuery(params: ReportParams): string {
+  const q = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) q.set(key, value);
+  }
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
+/**
+ * Generate a report (logged in the audit chain as report_generated) and
+ * return the PDF with its fingerprint and suggested filename.
+ */
+export async function generateReport(
+  type: ReportTypeId,
+  params: ReportParams,
+): Promise<{ blob: Blob; sha256: string; filename: string }> {
+  const response = await fetch(`${API_URL}/reports/${type}.pdf${reportQuery(params)}`, {
+    headers: { "X-Doude-Actor": getActor() },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(
+      (body && (body as { message?: string }).message) ||
+        `Report failed (${response.status})`,
+    );
+  }
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `doude-${type}.pdf`;
+  return {
+    blob: await response.blob(),
+    sha256: response.headers.get("x-report-sha256") ?? "",
+    filename,
+  };
+}
+
+export function reportHistoryPdfUrl(entryId: number): string {
+  return `${API_URL}/reports/history/${entryId}.pdf`;
 }
