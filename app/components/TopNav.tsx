@@ -82,12 +82,13 @@ export function TopNav() {
           <InfoChip label="Detected" value={formatDateTime(analysis?.leak?.detected_at)} />
           <InfoChip label="Shut in" value={formatDateTime(analysis?.leak?.shut_in_at)} />
           {error ? (
-            <div className="chip border border-danger/30 bg-danger/10">
+            <div className="chip hidden min-[1280px]:flex border border-danger/30 bg-danger/10">
               <span className="h-2 w-2 rounded-full bg-danger" />
               <span className="font-medium text-danger">Engine offline</span>
             </div>
           ) : (
             <InfoChip
+              className="hidden min-[1280px]:flex"
               label="Pipeline"
               value={
                 scenario?.pipeline
@@ -123,11 +124,19 @@ export function TopNav() {
   );
 }
 
-function InfoChip({ label, value }: { label: string; value: string }) {
+function InfoChip({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
   return (
-    <div className="chip">
-      <span className="text-faint">{label}:</span>
-      <span className="font-medium text-text">{value}</span>
+    <div className={`chip shrink-0 ${className ?? ""}`}>
+      <span className="whitespace-nowrap text-faint">{label}:</span>
+      <span className="whitespace-nowrap font-medium text-text">{value}</span>
     </div>
   );
 }
