@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   CalendarRange,
+  Plus,
   Check,
   ClipboardCheck,
   Copy,
@@ -15,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { CreateReportDialog } from "@/components/CreateReportDialog";
 import { Skeleton } from "@/components/Skeleton";
 import {
   generateReport,
@@ -53,6 +55,17 @@ function isoDay(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+const WRITTEN_LABEL: Record<string, string> = {
+  "written-form-a": "Form A (written)",
+  "written-form-b": "Form B (written)",
+  "written-form-c": "Form C (written)",
+  "written-custom": "Custom report",
+};
+
+function reportLabel(type: string, typeById: Record<string, ReportType>): string {
+  return typeById[type]?.name ?? WRITTEN_LABEL[type] ?? type;
+}
+
 function scopeText(item: ReportHistoryItem): string {
   const p = item.params ?? {};
   if (p.spill_id) return p.spill_id;
@@ -68,6 +81,7 @@ export default function ReportsPage() {
   const [history, setHistory] = useState<ReportHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<ReportTypeId | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const refreshHistory = useCallback(() => {
     getReportHistory().then(setHistory).catch(() => undefined);
@@ -99,10 +113,22 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-      <h1 className="mb-1 text-2xl font-semibold text-text">Reports</h1>
-      <p className="mb-5 text-sm text-muted">
-        Every generated report is fingerprinted (SHA-256) and recorded in the audit chain.
-      </p>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="mb-1 text-2xl font-semibold text-text">Reports</h1>
+          <p className="text-sm text-muted">
+            Every generated report is fingerprinted (SHA-256) and recorded in the audit chain.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          data-create-report-button
+          className="flex h-10 items-center gap-2 rounded-[12px] bg-primary px-4 text-sm font-medium text-text transition-colors hover:bg-primary-dark"
+        >
+          <Plus className="h-4 w-4" /> Create report
+        </button>
+      </div>
 
       {error && (
         <div className="card mb-5 text-sm text-danger" role="alert">
@@ -148,6 +174,14 @@ export default function ReportsPage() {
           pipelines={pipelines}
           onClose={() => setSelected(null)}
           onGenerated={refreshHistory}
+        />
+      )}
+
+      {creating && (
+        <CreateReportDialog
+          spills={spills}
+          onClose={() => setCreating(false)}
+          onCreated={refreshHistory}
         />
       )}
 
@@ -349,7 +383,7 @@ function RecentReports({
         <tbody>
           {history.map((item) => (
             <tr key={item.id} className="border-b border-border-soft last:border-0 hover:bg-surface2/60">
-              <td className="px-5 py-3.5 font-medium text-text">{typeById[item.type]?.name ?? item.type}</td>
+              <td className="px-5 py-3.5 font-medium text-text">{reportLabel(item.type, typeById)}</td>
               <td className="px-5 py-3.5 text-text">{scopeText(item)}</td>
               <td className="px-5 py-3.5 text-muted">{item.actor}</td>
               <td className="px-5 py-3.5 tabular-nums text-muted">{formatDateTime(item.at)}</td>
@@ -359,7 +393,7 @@ function RecentReports({
               <td className="px-5 py-3.5 text-right">
                 <a
                   href={reportHistoryPdfUrl(item.id)}
-                  aria-label={`Re-download ${typeById[item.type]?.name ?? item.type}`}
+                  aria-label={`Re-download ${reportLabel(item.type, typeById)}`}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface3 hover:text-text"
                 >
                   <Download className="h-4 w-4" />
