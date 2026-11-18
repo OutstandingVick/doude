@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Bell, Menu, Search, SlidersHorizontal, Settings } from "lucide-react";
-import { getSpills } from "@/lib/api";
+import { useState } from "react";
+import { Menu, Search, Settings, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
 import { useAnalysis } from "@/components/AnalysisProvider";
 import { formatDateTime } from "@/lib/format";
-
-const USER_INITIALS = "VO";
+import { NotificationsBell } from "@/components/NotificationsBell";
+import { AvatarMenu } from "@/components/AvatarMenu";
 
 function SearchField() {
   const router = useRouter();
@@ -43,22 +43,6 @@ function SearchField() {
 
 export function TopNav() {
   const { analysis, scenario, error } = useAnalysis();
-  const [hasDetected, setHasDetected] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    getSpills()
-      .then((spills) => {
-        if (cancelled) return;
-        setHasDetected(spills[0]?.status === "detected");
-      })
-      .catch(() => {
-        /* offline: no dot */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   return (
     <header className="mb-6 flex items-center gap-3">
@@ -100,25 +84,11 @@ export function TopNav() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button data-topbar-action type="button" aria-label="Settings" className="icon-btn">
+          <Link href="/settings" aria-label="Settings" className="icon-btn">
             <Settings className="h-[18px] w-[18px]" />
-          </button>
-          <button data-topbar-action type="button" aria-label="Notifications" className="icon-btn relative">
-            <Bell className="h-[18px] w-[18px]" />
-            {hasDetected && (
-              <span
-                aria-label="New detected spill"
-                className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-danger"
-              />
-            )}
-          </button>
-          <div
-            data-topbar-action
-            aria-label="Account"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-green text-sm font-semibold text-white"
-          >
-            {USER_INITIALS}
-          </div>
+          </Link>
+          <NotificationsBell />
+          <AvatarMenu />
         </div>
       </div>
     </header>

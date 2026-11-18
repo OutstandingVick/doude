@@ -1,11 +1,14 @@
 import { API_URL } from "./types";
+import { getActor } from "./settings";
 import type {
   AnalyzeResponse,
   AuditEntry,
   AuditVerification,
+  Contact,
   EvidenceRecord,
   FormAData,
   HealthResponse,
+  Notification,
   ReadingsResponse,
   ScenarioResponse,
   SpillDetail,
@@ -17,7 +20,11 @@ import type {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Doude-Actor": getActor(),
+      ...(init?.headers ?? {}),
+    },
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
@@ -89,10 +96,11 @@ export async function uploadEvidence(
   const form = new FormData();
   form.append("file", file);
   if (note) form.append("note", note);
-  const response = await fetch(`${API_URL}/spills/${encodeURIComponent(id)}/evidence`, {
-    method: "POST",
-    body: form,
-  });
+    const response = await fetch(`${API_URL}/spills/${encodeURIComponent(id)}/evidence`, {
+      method: "POST",
+      body: form,
+      headers: { "X-Doude-Actor": getActor() },
+    });
   if (!response.ok) {
     throw new Error(`Upload failed (${response.status})`);
   }
@@ -113,4 +121,36 @@ export function formAPdfUrl(spillId?: string): string {
 
 export function evidenceUrl(spillId: string, evidenceId: number): string {
   return `${API_URL}/spills/${encodeURIComponent(spillId)}/evidence/${evidenceId}`;
+}
+
+export function getNotifications(): Promise<Notification[]> {
+  return request<Notification[]>("/notifications");
+}
+
+export function fileFormA(
+  spillId: string,
+  reference: string,
+  filedAt: string,
+): Promise<{ spill_id: string; filed: boolean; late: boolean; reference: string; filed_at: string }> {
+  return request(`/spills/${encodeURIComponent(spillId)}/forms/a/filed`, {
+    method: "POST",
+    body: JSON.stringify({ reference, filed_at: filedAt }),
+  });
+}
+
+export function getContacts(): Promise<Contact[]> {
+  return request<Contact[]>("/contacts");
+}
+
+export function addContact(
+  contact: { name: string; email?: string; phone?: string },
+): Promise<Contact> {
+  return request<Contact>("/contacts", {
+    method: "POST",
+    body: JSON.stringify(contact),
+  });
+}
+
+export function removeContact(id: number): Promise<{ id: number; removed: boolean }> {
+  return request(`/contacts/${id}`, { method: "DELETE" });
 }

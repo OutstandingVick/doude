@@ -145,10 +145,40 @@ export interface AuditVerification {
   broken_at: number | null;
 }
 
+export type Actor = "regulator" | "operator" | "community";
+
+export interface Notification {
+  id: string;
+  kind: "audit" | "deadline";
+  title: string;
+  detail: string;
+  at: string;
+  actor: string | null;
+  spill_id: string | null;
+  link: string;
+  overdue?: boolean;
+}
+
+export interface Contact {
+  id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+}
+
+export interface FormAStatus {
+  filed: boolean;
+  late: boolean;
+  reference: string | null;
+  filed_at: string | null;
+}
+
 export interface SpillDetail extends SpillHeader {
   analysis: AnalyzeResponse | null;
   evidence: EvidenceRecord[];
   audit: AuditEntry[];
+  form_a: FormAStatus | null;
 }
 
 export interface HealthResponse {
