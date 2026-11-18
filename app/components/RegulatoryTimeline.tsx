@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Calendar, Check, Eye, FileText, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ExpandButton } from "@/components/ExpandButton";
 import { fileFormA, formAPdfUrl, getSpill } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { useOutsideClose } from "@/lib/useOutsideClose";
 import { isReadOnly, useSettings } from "@/lib/settings";
 import type { AnalyzeResponse, AuditEntry, SpillStatus } from "@/lib/types";
 
@@ -57,7 +56,6 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
   const [fileError, setFileError] = useState<string | null>(null);
   const settings = useSettings();
   const readOnly = isReadOnly(settings.actor);
-  const ref = useOutsideClose<HTMLDivElement>(useCallback(() => setOpenRow(null), []));
 
   const leak = analysis.leak;
   useEffect(() => {
@@ -124,7 +122,7 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
   }
 
   return (
-    <div ref={ref} data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
+    <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between">
         <h2 className="card-title">Regulatory timeline</h2>
         <div className="flex items-center gap-2">
@@ -185,7 +183,7 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
               </div>
 
               {open && (
-                <div className="absolute right-0 top-full z-30 mt-1 w-[260px] rounded-[12px] border border-border bg-surface p-3 shadow-lg">
+                <div className="mt-2 rounded-[12px] border border-border bg-surface p-3">
                   <PopoverContent
                     row={row}
                     spillId={spillId}
