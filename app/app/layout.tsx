@@ -26,7 +26,7 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen antialiased">
         <AnalysisProvider>
-          <div className="mx-8 my-8 min-h-[calc(100vh-4rem)] max-w-[1440px] rounded-[28px] border border-border bg-container p-6 shadow-[0_20px_60px_rgba(0,0,0,0.06)] lg:h-[calc(100dvh-64px)] lg:overflow-hidden">
+          <div data-container className="mx-8 my-8 min-h-[calc(100vh-4rem)] max-w-[1440px] rounded-[28px] border border-border bg-container p-6 shadow-[0_20px_60px_rgba(0,0,0,0.06)] lg:h-[calc(100dvh-64px)] lg:overflow-hidden">
             <div className="flex h-full gap-6">
               <Suspense fallback={null}>
                 <Sidebar />

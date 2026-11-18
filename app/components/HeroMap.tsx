@@ -347,6 +347,7 @@ export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = "
       </div>
 
       <button
+        data-zoom-leak
         type="button"
         aria-label="Zoom to leak"
         onClick={toggleZoom}
@@ -355,7 +356,7 @@ export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = "
         <Crosshair className="h-6 w-6" />
       </button>
 
-      <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-[14px] bg-white p-1.5 shadow-md">
+      <div data-map-toolbar className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-[14px] bg-white p-1.5 shadow-md">
         <ToolbarButton active={layers.pipeline} onClick={() => toggleLayer("pipeline")} label="Pipeline">
           <Route className="h-5 w-5" />
         </ToolbarButton>

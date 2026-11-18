@@ -64,7 +64,7 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
   const MONTH_NAMES = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
 
   return (
-    <div className="card flex h-full min-h-0 flex-col overflow-hidden">
+    <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between">
         <h2 className="card-title">Regulatory timeline</h2>
         <div className="flex items-center gap-2">
@@ -112,7 +112,7 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-text">{row.title}</div>
+                <div data-timeline-title className="truncate text-sm font-medium text-text">{row.title}</div>
                 <div className="truncate text-[11px] text-faint">{row.subtitle}</div>
               </div>
 

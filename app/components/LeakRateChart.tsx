@@ -97,7 +97,7 @@ export function LeakRateChart({ analysis, readings }: LeakRateChartProps) {
   const tooltipX = Math.min(Math.max(peakX - tooltipW / 2, padL), W - padR - tooltipW);
 
   return (
-    <div className="card flex h-full min-h-0 flex-col overflow-hidden">
+    <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between">
         <h2 className="card-title">Leak rate</h2>
         <ExpandButton />

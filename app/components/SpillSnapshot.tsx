@@ -51,7 +51,7 @@ export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSn
   const terrain = leak?.terrain === "water" ? "Water" : "Land";
 
   return (
-    <div className="card flex h-full min-h-0 flex-col overflow-hidden">
+    <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between">
         <h2 className="card-title">Spill snapshot</h2>
         <ExpandButton />

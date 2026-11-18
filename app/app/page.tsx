@@ -79,7 +79,7 @@ export default function Dashboard() {
   return (
     <div className={GRID}>
       <div className="min-h-0 md:col-span-2 xl:col-span-5 xl:row-span-2">
-        <div className="card h-full overflow-hidden p-0">
+        <div data-card className="card h-full overflow-hidden p-0">
           <HeroMap
             analysis={analysis}
             scenario={scenario}

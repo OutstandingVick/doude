@@ -100,10 +100,10 @@ export function TopNav() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button type="button" aria-label="Settings" className="icon-btn">
+          <button data-topbar-action type="button" aria-label="Settings" className="icon-btn">
             <Settings className="h-[18px] w-[18px]" />
           </button>
-          <button type="button" aria-label="Notifications" className="icon-btn relative">
+          <button data-topbar-action type="button" aria-label="Notifications" className="icon-btn relative">
             <Bell className="h-[18px] w-[18px]" />
             {hasDetected && (
               <span
@@ -113,6 +113,7 @@ export function TopNav() {
             )}
           </button>
           <div
+            data-topbar-action
             aria-label="Account"
             className="flex h-10 w-10 items-center justify-center rounded-full bg-green text-sm font-semibold text-white"
           >
