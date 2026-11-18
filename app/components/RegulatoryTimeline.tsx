@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar, Eye, Pencil } from "lucide-react";
+import { Calendar, Eye } from "lucide-react";
 import { ExpandButton } from "@/components/ExpandButton";
 import { formAPdfUrl } from "@/lib/api";
 import type { AnalyzeResponse, SpillStatus } from "@/lib/types";
@@ -88,7 +88,7 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
               key={i}
               className="flex h-16 items-center gap-3 rounded-[14px] bg-surface2 px-3"
             >
-              <div className="w-9 shrink-0 text-center">
+              <div className="w-11 shrink-0 text-center">
                 <div className="text-xs text-faint">{weekday}</div>
                 <div
                   className={`text-[22px] font-medium leading-none ${
@@ -99,15 +99,15 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
                 </div>
               </div>
 
-              <div className="flex shrink-0 -space-x-1.5">
+              <div className="flex shrink-0 -space-x-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green text-[9px] font-semibold text-white ring-2 ring-surface2">
                   NO
                 </span>
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-info/80 text-[9px] font-semibold text-white ring-2 ring-surface2">
                   OP
                 </span>
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface3 text-[10px] font-semibold text-muted ring-2 ring-surface2">
-                  +
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface3 text-[9px] font-semibold text-muted ring-2 ring-surface2">
+                  +1
                 </span>
               </div>
 
@@ -117,7 +117,7 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
               </div>
 
               <span
-                className={`pill shrink-0 ${row.current ? "pill-active" : "bg-surface3"}`}
+                className={`pill h-7 shrink-0 px-2.5 text-xs ${row.current ? "pill-active" : "bg-surface3"}`}
               >
                 {row.pill}
               </span>
@@ -138,9 +138,6 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
                     <Eye className="h-3.5 w-3.5" />
                   </button>
                 )}
-                <button type="button" aria-label="Edit" className="flex h-7 w-7 items-center justify-center rounded-full text-faint hover:bg-surface3 hover:text-text">
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
               </div>
             </div>
           );
