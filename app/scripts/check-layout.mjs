@@ -4,6 +4,7 @@ const BASE_URL = process.env.DOUDE_URL ?? "http://localhost:3000";
 const VIEWPORTS = [
   { width: 1440, height: 900 },
   { width: 1280, height: 800 },
+  { width: 1130, height: 800 },
 ];
 
 const results = [];
@@ -131,8 +132,14 @@ async function runViewport(browser, vp) {
   if (m.container) {
     const fits = m.container.top >= 0 && m.container.left >= 0 && m.container.right <= vp.width + 1 && m.container.bottom <= vp.height + 1;
     record(vp, "container fits viewport", fits, `top=${m.container.top} left=${m.container.left} right=${m.container.right} bottom=${m.container.bottom} (vw=${vp.width} vh=${vp.height})`);
+    // container centred: left and right margins within 2px of each other
+    const leftMargin = m.container.left;
+    const rightMargin = vp.width - m.container.right;
+    const centred = Math.abs(leftMargin - rightMargin) <= 2;
+    record(vp, "container centred", centred, `leftMargin=${fmt(leftMargin)} rightMargin=${fmt(rightMargin)} diff=${fmt(Math.abs(leftMargin - rightMargin))}`);
   } else {
     record(vp, "container fits viewport", false, "no [data-container] found");
+    record(vp, "container centred", false, "no [data-container] found");
   }
 
   // 3. each card inside container - 16px (right & bottom)
