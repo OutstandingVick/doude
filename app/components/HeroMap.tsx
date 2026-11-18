@@ -44,7 +44,7 @@ function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
     if (points.length > 0) {
-      map.fitBounds(L.latLngBounds(points), { padding: [40, 40] });
+      map.fitBounds(L.latLngBounds(points), { padding: [40, 40], paddingTopLeft: [260, 24] });
     }
   }, [map, points]);
   return null;
@@ -173,7 +173,7 @@ function GlassInfoCard({ analysis, spillId }: { analysis: AnalyzeResponse; spill
   const slickKm2 = impact ? (impact.slick_area_m2 ?? 0) / 1e6 : 0;
 
   return (
-    <div className="absolute left-4 top-1/2 z-20 w-[220px] -translate-y-1/2 rounded-[12px] bg-white/78 p-3 shadow-sm backdrop-blur-md">
+    <div className="absolute left-4 top-4 z-20 w-[220px] rounded-[12px] bg-white/78 p-3 shadow-sm backdrop-blur-md">
       <div className="flex items-start justify-between gap-2">
         <div className="text-[13px] font-semibold text-text">
           {formatKm(leak.location_m)} · {analysis.pipeline_id}
