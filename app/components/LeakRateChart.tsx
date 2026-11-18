@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { ExpandButton } from "@/components/ExpandButton";
 import { formatInt, formatNumber } from "@/lib/format";
 import type { AnalyzeResponse, ReadingsResponse } from "@/lib/types";
@@ -9,56 +10,91 @@ export interface LeakRateChartProps {
   readings: ReadingsResponse | null;
 }
 
+interface HourBin {
+  time: number;
+  rate: number;
+  leaking: boolean;
+}
+
 export function LeakRateChart({ analysis, readings }: LeakRateChartProps) {
   const q = analysis.quantification;
   const [low, high] = q?.volume_range_m3 ?? [0, 0];
   const leak = analysis.leak;
 
-  const data = readings?.readings ?? [];
-  const values = data.map((r) => r.q_in_m3s - r.q_out_m3s);
-  const maxValue = Math.max(0.0001, ...values);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
 
-  const W = 400;
-  const H = 190;
-  const plotTop = 12;
-  const plotBottom = 155;
-  const plotH = plotBottom - plotTop;
-  const barSlot = data.length > 0 ? W / data.length : 0;
-  const barWidth = barSlot * 0.65;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r) setSize({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
-  const startMs = leak ? Date.parse(leak.estimated_start) : null;
-  const endMs = leak && leak.shut_in_at ? Date.parse(leak.shut_in_at) : null;
-  const inWindow = (i: number) =>
-    startMs !== null && endMs !== null &&
-    Date.parse(data[i].timestamp) >= startMs &&
-    Date.parse(data[i].timestamp) < endMs;
-
-  // Peak leak rate inside the window, for the pinned tooltip.
-  let peakIndex = -1;
-  let peakValue = 0;
-  if (startMs !== null && endMs !== null) {
-    for (let i = 0; i < data.length; i++) {
-      if (inWindow(i) && values[i] > peakValue) {
-        peakValue = values[i];
-        peakIndex = i;
-      }
-    }
+  // Bin readings into hourly buckets (mean leak rate per hour).
+  const buckets = new Map<number, number[]>();
+  for (const r of readings?.readings ?? []) {
+    const t = Date.parse(r.timestamp);
+    const hour = Math.floor(t / 3_600_000);
+    const arr = buckets.get(hour) ?? [];
+    arr.push(r.q_in_m3s - r.q_out_m3s);
+    buckets.set(hour, arr);
   }
-  const peakX = peakIndex >= 0 ? peakIndex * barSlot + barSlot / 2 : 0;
+  const startMs = leak ? Date.parse(leak.estimated_start) : 0;
+  const endMs = leak && leak.shut_in_at ? Date.parse(leak.shut_in_at) : 0;
 
-  // Day labels (01–05 Nov); the leak day (03 Nov) is bold.
-  const dayLabels = [1, 2, 3, 4, 5]
-    .map((day) => {
-      const idx = data.findIndex(
-        (r) => new Date(r.timestamp).getUTCDate() === day && new Date(r.timestamp).getUTCMonth() === 10,
-      );
-      if (idx < 0) return null;
-      return { x: idx * barSlot + barSlot / 2, label: `${String(day).padStart(2, "0")} Nov`, bold: day === 3 };
-    })
-    .filter((d): d is { x: number; label: string; bold: boolean } => d !== null);
+  const bins: HourBin[] = [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([hour, vals]) => ({
+      time: hour * 3_600_000,
+      rate: vals.reduce((s, v) => s + v, 0) / vals.length,
+      leaking: startMs !== 0 && endMs !== 0 && hour * 3_600_000 >= startMs && hour * 3_600_000 < endMs,
+    }));
 
-  const tooltipW = 96;
-  const tooltipX = Math.min(Math.max(peakX - tooltipW / 2, 4), W - tooltipW - 4);
+  const maxRate = Math.max(0.0001, ...bins.map((b) => b.rate));
+  const yMax = maxRate * 1.15;
+
+  let peakIdx = -1;
+  let peakRate = 0;
+  bins.forEach((b, i) => {
+    if (b.leaking && b.rate > peakRate) {
+      peakRate = b.rate;
+      peakIdx = i;
+    }
+  });
+
+  const padL = 12;
+  const padR = 12;
+  const padT = 46;
+  const padB = 24;
+  const W = Math.max(0, size.w);
+  const H = Math.max(0, size.h);
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const n = bins.length;
+  const barSlot = n > 0 ? plotW / n : 0;
+  const barW = Math.max(1, Math.min(3, barSlot - 2));
+
+  // Daily tick positions (first hour of each day).
+  const dayTicks: { x: number; label: string; bold: boolean }[] = [];
+  let prevDay = -1;
+  bins.forEach((b, i) => {
+    const day = new Date(b.time).getUTCDate();
+    if (day !== prevDay) {
+      dayTicks.push({ x: padL + i * barSlot + barSlot / 2, label: String(day).padStart(2, "0"), bold: day === 3 });
+      prevDay = day;
+    }
+  });
+
+  const peakX = peakIdx >= 0 ? padL + peakIdx * barSlot + barSlot / 2 : 0;
+  const tooltipLabel = "Peak hourly leak rate";
+  const tooltipValue = `${formatNumber(peakRate, 4)} m³/s`;
+  const tooltipW = 150;
+  const tooltipX = Math.min(Math.max(peakX - tooltipW / 2, padL), W - padR - tooltipW);
 
   return (
     <div className="card flex h-full min-h-0 flex-col overflow-hidden">
@@ -82,59 +118,52 @@ export function LeakRateChart({ analysis, readings }: LeakRateChartProps) {
         </div>
       </div>
 
-      <div className="mt-4 flex-1">
-        {data.length > 0 && (
-          <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full" preserveAspectRatio="none">
-            <line x1={0} y1={plotBottom} x2={W} y2={plotBottom} stroke="#E7E7E2" strokeWidth={1} />
+      <div ref={ref} className="mt-3 min-h-0 flex-1">
+        {W > 0 && H > 0 && n > 0 && (
+          <svg width={W} height={H} role="img" aria-label="Leak rate per hour">
+            <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} stroke="#E7E7E2" strokeWidth={1} />
 
-            {values.map((v, i) => {
-              const h = (v / maxValue) * plotH;
-              const x = i * barSlot + (barSlot - barWidth) / 2;
-              const y = plotBottom - h;
+            {bins.map((b, i) => {
+              const h = (b.rate / yMax) * plotH;
+              const x = padL + i * barSlot + (barSlot - barW) / 2;
+              const y = padT + plotH - h;
               return (
                 <rect
                   key={i}
                   x={x}
                   y={y}
-                  width={barWidth}
-                  height={Math.max(h, 0.5)}
-                  rx={1}
-                  fill={inWindow(i) ? "#D7F26B" : "#D9D9D4"}
+                  width={barW}
+                  height={Math.max(h, 1)}
+                  rx={1.5}
+                  fill={b.leaking ? "#D7F26B" : "#D9D9D4"}
                 />
               );
             })}
 
-            {dayLabels.map((d) => (
+            {dayTicks.map((t) => (
               <text
-                key={d.label}
-                x={d.x}
-                y={178}
+                key={t.x}
+                x={t.x}
+                y={H - padB + 12}
                 textAnchor="middle"
                 fontSize={11}
-                fontWeight={d.bold ? 700 : 400}
-                fill={d.bold ? "#111111" : "#9A9A94"}
+                fontWeight={t.bold ? 700 : 400}
+                fill="#9A9A94"
               >
-                {d.label}
+                {t.label}
               </text>
             ))}
 
-            {peakIndex >= 0 && (
+            {peakIdx >= 0 && (
               <g>
-                <line
-                  x1={peakX}
-                  y1={plotTop + 34}
-                  x2={peakX}
-                  y2={plotBottom - (peakValue / maxValue) * plotH}
-                  stroke="#111111"
-                  strokeWidth={1}
-                />
-                <circle cx={peakX} cy={plotBottom - (peakValue / maxValue) * plotH} r={2.5} fill="#E5484D" />
-                <rect x={tooltipX} y={plotTop} width={tooltipW} height={34} rx={6} fill="#FFFFFF" stroke="#E7E7E2" />
-                <text x={tooltipX + 8} y={plotTop + 14} fontSize={9} fill="#9A9A94">
-                  Peak leak rate
+                <line x1={peakX} y1={padT} x2={peakX} y2={padT + plotH - (peakRate / yMax) * plotH} stroke="#111111" strokeWidth={1} />
+                <circle cx={peakX} cy={padT + plotH - (peakRate / yMax) * plotH} r={2.5} fill="#E5484D" />
+                <rect x={tooltipX} y={4} width={tooltipW} height={40} rx={6} fill="#FFFFFF" stroke="#E7E7E2" />
+                <text x={tooltipX + 8} y={20} fontSize={10} fill="#9A9A94">
+                  {tooltipLabel}
                 </text>
-                <text x={tooltipX + 8} y={plotTop + 28} fontSize={11} fontWeight={600} fill="#111111">
-                  {formatNumber(peakValue, 4)} m³/s
+                <text x={tooltipX + 8} y={36} fontSize={12} fontWeight={600} fill="#111111">
+                  {tooltipValue}
                 </text>
               </g>
             )}
