@@ -146,7 +146,7 @@ body {
 }
 
 /* Pulsing leak marker */
-@keyframes doude-pulse {
+@keyframes feasibility3d-pulse {
   0% {
     transform: scale(0.6);
     opacity: 0.9;
@@ -173,7 +173,7 @@ body {
   inset: 0;
   border-radius: 9999px;
   background: var(--color-danger);
-  animation: doude-pulse 1.8s ease-out infinite;
+  animation: feasibility3d-pulse 1.8s ease-out infinite;
 }
 
 .leak-pulse::after {

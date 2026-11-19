@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 
-const BASE_URL = process.env.DOUDE_URL ?? "http://localhost:3000";
+const BASE_URL = process.env.FEASIBILITY3D_URL ?? "http://localhost:3000";
 const VIEWPORTS = [
   { width: 1440, height: 900 },
   { width: 1280, height: 800 },

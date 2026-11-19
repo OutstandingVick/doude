@@ -1,4 +1,4 @@
-# Doude app (Next.js)
+# Feasibility3D app (Next.js)
 
 Not scaffolded yet. To set it up, run this inside `/app` and keep `lib/types.ts`:
 
@@ -9,7 +9,7 @@ npm i leaflet react-leaflet recharts && npm i -D @types/leaflet
 
 Create `.env.local`:
 ```
-NEXT_PUBLIC_DOUDE_API=http://localhost:8000
+NEXT_PUBLIC_FEASIBILITY3D_API=http://localhost:8000
 ```
 
 Build against the engine stub (`uvicorn engine.main:app --reload`), which already serves the sample contract. Types are in `lib/types.ts`.

@@ -33,7 +33,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      "X-Doude-Actor": getActor(),
+      "X-Feasibility3D-Actor": getActor(),
       ...(init?.headers ?? {}),
     },
   });
@@ -110,7 +110,7 @@ export async function uploadEvidence(
     const response = await fetch(`${API_URL}/spills/${encodeURIComponent(id)}/evidence`, {
       method: "POST",
       body: form,
-      headers: { "X-Doude-Actor": getActor() },
+      headers: { "X-Feasibility3D-Actor": getActor() },
     });
   if (!response.ok) {
     throw new Error(`Upload failed (${response.status})`);
@@ -195,7 +195,7 @@ export async function generateReport(
   params: ReportParams,
 ): Promise<{ blob: Blob; sha256: string; filename: string }> {
   const response = await fetch(`${API_URL}/reports/${type}.pdf${reportQuery(params)}`, {
-    headers: { "X-Doude-Actor": getActor() },
+    headers: { "X-Feasibility3D-Actor": getActor() },
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
@@ -205,7 +205,7 @@ export async function generateReport(
     );
   }
   const disposition = response.headers.get("content-disposition") ?? "";
-  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `doude-${type}.pdf`;
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `feasibility3d-${type}.pdf`;
   return {
     blob: await response.blob(),
     sha256: response.headers.get("x-report-sha256") ?? "",
@@ -228,7 +228,7 @@ export class ApiError extends Error {
 async function send<T>(path: string, method: string, body?: unknown): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     method,
-    headers: { "Content-Type": "application/json", "X-Doude-Actor": getActor() },
+    headers: { "Content-Type": "application/json", "X-Feasibility3D-Actor": getActor() },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) {

@@ -29,8 +29,8 @@ const NAV = [
 const USER_NAME = "Victor Ogbonna";
 const USER_HANDLE = "Regulator view";
 const USER_INITIALS = "VO";
-const STORAGE_KEY = "doude-sidebar-collapsed";
-const OPEN_DRAWER_EVENT = "doude:open-drawer";
+const STORAGE_KEY = "feasibility3d-sidebar-collapsed";
+const OPEN_DRAWER_EVENT = "feasibility3d:open-drawer";
 
 function readStoredCollapsed(): boolean {
   try {
@@ -127,7 +127,7 @@ export function Sidebar() {
           {c ? (
             <Link
               href="/"
-              aria-label="Doude home"
+              aria-label="Feasibility3D home"
               className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-green text-lg font-semibold text-white"
             >
               d
@@ -136,10 +136,10 @@ export function Sidebar() {
             <div className="pr-8">
               <Link
                 href="/"
-                aria-label="Doude home"
+                aria-label="Feasibility3D home"
                 className="text-[26px] font-semibold tracking-tight text-green"
               >
-                doude
+                feasibility3d
               </Link>
               <div className="mt-0.5 text-xs text-faint">Spill intelligence</div>
             </div>

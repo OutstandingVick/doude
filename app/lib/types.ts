@@ -1,4 +1,4 @@
-// Doude API types — must match docs/api-contract.md and contracts/*.json.
+// Feasibility3D API types — must match docs/api-contract.md and contracts/*.json.
 
 export type LonLat = [number, number]; // GeoJSON order: [lon, lat]
 
@@ -261,7 +261,7 @@ export interface ScenarioResponse {
   };
 }
 
-export const API_URL = process.env.NEXT_PUBLIC_DOUDE_API ?? "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_FEASIBILITY3D_API ?? "http://localhost:8000";
 
 export type ReportScope = "spill" | "pipeline" | "period";
 export type ReportTypeId = "spill" | "form-a" | "compliance" | "audit" | "period";

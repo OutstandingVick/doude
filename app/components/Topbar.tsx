@@ -28,7 +28,7 @@ export function Topbar({ title, breadcrumb }: TopbarProps) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `doude-report-${analysis.pipeline_id}.json`;
+    anchor.download = `feasibility3d-report-${analysis.pipeline_id}.json`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);

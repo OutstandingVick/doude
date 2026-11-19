@@ -12,7 +12,7 @@ export interface Settings {
   actor: Actor;
 }
 
-const KEY = "doude-settings";
+const KEY = "feasibility3d-settings";
 const WAT_OFFSET_HOURS = 1;
 
 const DEFAULTS: Settings = { unit: "bbl", timezone: "utc", actor: "regulator" };

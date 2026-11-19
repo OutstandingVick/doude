@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Doude — Spill intelligence",
+  title: "Feasibility3D — Spill intelligence",
   description: "Every spill found, measured and recorded.",
 };
 

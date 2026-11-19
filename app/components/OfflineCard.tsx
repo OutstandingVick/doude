@@ -6,7 +6,7 @@ export function OfflineCard({ message }: { message?: string }) {
         <span className="text-sm font-medium text-text">Engine offline</span>
       </div>
       <p className="mt-2 text-sm text-muted">
-        {message ?? "Could not reach the Doude engine."}
+        {message ?? "Could not reach the Feasibility3D engine."}
       </p>
       <p className="mt-2 font-mono text-xs text-muted">
         Start the engine: uvicorn engine.main:app --port 8000

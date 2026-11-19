@@ -57,7 +57,7 @@ export function CreateReportDialog({
   const [kind, setKind] = useState<WrittenKind>(initialKind);
   const [spillId, setSpillId] = useState(spills[0]?.id ?? "");
   const [values, setValues] = useState<FieldValues>({});
-  // Values Doude filled from the spill record; not saved into templates.
+  // Values Feasibility3D filled from the spill record; not saved into templates.
   const [prefilled, setPrefilled] = useState<FieldValues>({});
   const [chosenSections, setChosenSections] = useState<string[]>(["summary", "timeline", "quantification"]);
   const [title, setTitle] = useState("");

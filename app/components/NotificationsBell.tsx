@@ -8,7 +8,7 @@ import { formatDateTime } from "@/lib/format";
 import { useOutsideClose } from "@/lib/useOutsideClose";
 import type { Notification } from "@/lib/types";
 
-const LAST_SEEN_KEY = "doude-notifications-last-seen";
+const LAST_SEEN_KEY = "feasibility3d-notifications-last-seen";
 
 function readLastSeen(): number {
   if (typeof window === "undefined") return 0;

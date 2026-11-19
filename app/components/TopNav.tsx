@@ -50,7 +50,7 @@ export function TopNav() {
         type="button"
         aria-label="Open menu"
         onClick={() => {
-          window.dispatchEvent(new Event("doude:open-drawer"));
+          window.dispatchEvent(new Event("feasibility3d:open-drawer"));
         }}
         className="icon-btn md:hidden"
       >
