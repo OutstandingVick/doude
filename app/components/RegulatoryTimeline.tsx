@@ -126,9 +126,13 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
       <div className="flex items-center justify-between">
         <h2 className="card-title">Regulatory timeline</h2>
         <div className="flex items-center gap-2">
-          <button type="button" aria-label="Calendar" className="icon-btn h-8 w-8">
+          <Link
+            href={`/spills/${spillId}?tab=forms`}
+            aria-label="Open regulatory forms"
+            className="icon-btn h-8 w-8"
+          >
             <Calendar className="h-4 w-4" />
-          </button>
+          </Link>
           <ExpandButton />
         </div>
       </div>

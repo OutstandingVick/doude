@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { Info } from "lucide-react";
+import Link from "next/link";
 import { ExpandButton } from "@/components/ExpandButton";
 import { evidenceUrl, verify } from "@/lib/api";
-import { formatKm, roundHalfUp, toLatLng } from "@/lib/format";
+import { formatCoord, formatKm, roundHalfUp, toLatLng } from "@/lib/format";
+import { useOutsideClose } from "@/lib/useOutsideClose";
 import type { AnalyzeResponse, EvidenceRecord, LonLat, ScenarioResponse } from "@/lib/types";
 
 export interface SpillSnapshotProps {
@@ -31,6 +33,9 @@ function satelliteTileUrl(lon: number, lat: number): string {
 }
 
 export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSnapshotProps) {
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoPos, setInfoPos] = useState<{ top: number; left: number } | null>(null);
+  const infoRef = useOutsideClose<HTMLDivElement>(() => setInfoOpen(false));
   const leak = analysis.leak;
   const images = evidence.filter((e) => e.content_type.startsWith("image/"));
   const hasEvidence = images.length > 0;
@@ -94,12 +99,59 @@ export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSn
       <div className="mt-3 flex items-end justify-between gap-3">
         <div className="flex items-center gap-2">
           <VerifyPill />
-          <button type="button" aria-label="More info" className="icon-btn h-8 w-8">
+          <button
+            type="button"
+            aria-label="More info"
+            aria-expanded={infoOpen}
+            onClick={(e) => {
+              if (infoOpen) {
+                setInfoOpen(false);
+              } else {
+                const r = e.currentTarget.getBoundingClientRect();
+                setInfoPos({ top: r.bottom + 6, left: Math.max(8, r.left - 120) });
+                setInfoOpen(true);
+              }
+            }}
+            className="icon-btn h-8 w-8"
+          >
             <Info className="h-4 w-4" />
           </button>
         </div>
         <MiniMap route={scenario.pipeline.route_lonlat} leak={leak?.location_lonlat} />
       </div>
+
+      {infoOpen && infoPos && leak && (
+        <div
+          ref={infoRef}
+          className="fixed z-50 w-[260px] rounded-[12px] border border-border bg-surface p-3 shadow-lg"
+          style={{ top: infoPos.top, left: infoPos.left }}
+        >
+          <div className="text-sm font-medium text-text">{spillId} · {REGION}</div>
+          <dl className="mt-2 space-y-1.5 text-[13px]">
+            <InfoRow label="Pipeline" value={`${scenario.pipeline.id} · ${scenario.pipeline.type === "trunk_line" ? "Trunk line" : "Flow line"}`} />
+            <InfoRow label="Terrain" value={terrain} />
+            <InfoRow label="Coordinates" value={`${formatCoord(leak.location_lonlat[1])}, ${formatCoord(leak.location_lonlat[0])}`} />
+            <InfoRow label="Location" value={`${formatKm(leak.location_m)} (±${leak.location_uncertainty_m} m)`} />
+            <InfoRow label="Duration" value={`${roundHalfUp(leak.duration_hours, 1)} h`} />
+          </dl>
+          <Link
+            href={`/spills/${spillId}`}
+            onClick={() => setInfoOpen(false)}
+            className="mt-2.5 inline-block text-xs font-medium text-primary hover:underline"
+          >
+            Open spill record →
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-faint">{label}</dt>
+      <dd className="text-right text-text">{value}</dd>
     </div>
   );
 }
