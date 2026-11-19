@@ -4,9 +4,9 @@
 
 set -u
 
-REPO_URL="${DOUDE_REPO:-https://github.com/OutstandingVick/doude.git}"
-TMP_DIR="$(mktemp -d /tmp/doude-fresh.XXXXXX)"
-CLONE_DIR="$TMP_DIR/doude"
+REPO_URL="${FEASIBILITY3D_REPO:-https://github.com/OutstandingVick/doude.git}"
+TMP_DIR="$(mktemp -d /tmp/feasibility3d-fresh.XXXXXX)"
+CLONE_DIR="$TMP_DIR/feasibility3d"
 PASS=0
 FAIL=0
 

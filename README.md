@@ -1,10 +1,10 @@
-# Doude
+# Feasibility3D
 
-> **Doude** — Izon for "found". *Every spill found, measured and recorded.*
+> **Feasibility3D** — Izon for "found". *Every spill found, measured and recorded.*
 
 Oil spills in the Niger Delta are self-reported by the operators, and dispute
 over the released volume drives most compensation claims. Regulators at NOSDRA
-and NUPRC have no independent way to check those numbers. Doude gives them a
+and NUPRC have no independent way to check those numbers. Feasibility3D gives them a
 repeatable, tamper-evident method — measured from pressure and flow alone.
 
 ---
@@ -47,7 +47,7 @@ append-only audit log chained with SHA-256 so any tampering is detectable.
 
 ## Results
 
-| Scenario | Metric | Truth | Doude | Result |
+| Scenario | Metric | Truth | Feasibility3D | Result |
 |---|---|---|---|---|
 | 01 — trunk line leak (25 mm @ 13.4 km) | Detection | ≤ 15 min | 5 min | ✅ |
 | | Location | 13,400 m | 13,390 m | ✅ |
@@ -74,7 +74,7 @@ start from a clean local state, stop the engine and run:
 python -m engine.db --reset-dev
 ```
 
-It lists what it will delete (`data/doude.db` with its WAL files, and
+It lists what it will delete (`data/feasibility3d.db` with its WAL files, and
 `data/evidence/`, generated reports in `data/reports/`) and asks you to type `reset` before deleting anything.
 Restart the engine afterwards to recreate an empty database.
 
@@ -102,7 +102,7 @@ Restart the engine afterwards to recreate an empty database.
 ## Project structure
 
 ```
-doude/
+feasibility3d/
 ├── engine/            # Python: detect, locate, quantify, report, pdf, db, api
 │   ├── detect.py locate.py quantify.py impact.py report.py
 │   ├── pdf_report.py forms.py db.py main.py
@@ -110,14 +110,14 @@ doude/
 │   └── test_*.py
 ├── scenarios/         # scenario_01.json, scenario_02.json
 ├── scenario.json      # active scenario (symlink target of the above)
-├── data/              # readings.csv, doude.db, evidence/ (generated, gitignored)
+├── data/              # readings.csv, feasibility3d.db, evidence/ (generated, gitignored)
 ├── app/               # Next.js + Tailwind dashboard
 ├── contracts/ docs/ scripts/
 ├── Makefile
 └── .python-version    # 3.9
 ```
 
-## Method (doude-method v0.1)
+## Method (feasibility3d-method v0.1)
 
 - **Friction** — Darcy-Weisbach with the Swamee-Jain friction factor.
 - **Location** — gradient intersection: `x = (P_in − P_out − G_out·L) / (G_in − G_out)`.

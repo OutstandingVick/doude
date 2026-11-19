@@ -9,5 +9,5 @@ data/*.db
 data/evidence/
 data/reports/
 /reports/
-data/doude.db-wal
-data/doude.db-shm
+data/feasibility3d.db-wal
+data/feasibility3d.db-shm

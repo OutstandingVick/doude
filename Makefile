@@ -23,5 +23,5 @@ demo:
 	sleep 2 && cd app && npm run dev
 
 clean:
-	rm -rf app/.next app/node_modules .venv data/readings.csv data/doude.db data/evidence
+	rm -rf app/.next app/node_modules .venv data/readings.csv data/feasibility3d.db data/evidence
 	find . -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true

@@ -1,6 +1,6 @@
 {
-  "name": "Doude test scenario 01 \u2014 trunk line leak into creek",
-  "method_version": "doude-method v0.1",
+  "name": "Feasibility3D test scenario 01 \u2014 trunk line leak into creek",
+  "method_version": "feasibility3d-method v0.1",
   "pipeline": {
     "id": "BYS-TL-01",
     "type": "trunk_line",
