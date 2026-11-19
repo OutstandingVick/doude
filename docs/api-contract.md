@@ -1,4 +1,4 @@
-# Doude — Data format & API contract (v0.1)
+# Feasibility3D — Data format & API contract (v0.1)
 
 This is the agreement between the **engine** (Python, FastAPI) and the **app** (Next.js). Change it only when both of you agree, and update `contracts/*.json` and `app/lib/types.ts` in the same commit.
 
@@ -38,7 +38,7 @@ Base URL (local): `http://localhost:8000`. All responses are JSON.
 
 ### `GET /health`
 ```json
-{ "status": "ok", "method_version": "doude-method v0.1" }
+{ "status": "ok", "method_version": "feasibility3d-method v0.1" }
 ```
 
 ### `GET /scenario`

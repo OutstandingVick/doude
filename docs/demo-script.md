@@ -1,4 +1,4 @@
-# Doude — 3-minute demo
+# Feasibility3D — 3-minute demo
 
 > Narrated walkthrough. Times are cumulative from the start; the click target is
 > noted for each beat, followed by the one sentence to say.
@@ -37,4 +37,4 @@ audit log shows the whole chain is intact — every action tamper-evident."
 stamped, ready to check against the official template."
 
 **2:55 — Close.**
-"Independent, repeatable, and tamper-evident — that's Doude."
+"Independent, repeatable, and tamper-evident — that's Feasibility3D."
