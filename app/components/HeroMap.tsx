@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { formatBbl, formatKm, formatNumber, roundHalfUp, toLatLng } from "@/lib/format";
+import { MapErrorBoundary } from "@/components/MapErrorBoundary";
 import type { AnalyzeResponse, ScenarioResponse } from "@/lib/types";
 
 // Keyless Esri basemaps (no API key required).
@@ -346,17 +347,19 @@ export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = "
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <MapContainer
-        center={center}
-        zoom={11}
-        zoomSnap={0.25}
-        zoomControl={false}
-        style={{ height, width: "100%" }}
-        className="z-0"
-      >
-        <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} layers={layers} />
-        <MapRefCapture onMap={setMap} />
-      </MapContainer>
+      <MapErrorBoundary>
+        <MapContainer
+          center={center}
+          zoom={11}
+          zoomSnap={0.25}
+          zoomControl={false}
+          style={{ height, width: "100%" }}
+          className="z-0"
+        >
+          <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} layers={layers} />
+          <MapRefCapture onMap={setMap} />
+        </MapContainer>
+      </MapErrorBoundary>
 
       <div className="absolute right-4 top-4 z-20 flex flex-col gap-2">
         <button
@@ -417,15 +420,17 @@ export function HeroMap({ analysis, scenario, spillId, onRunAnalysis, height = "
 
       {expanded && (
         <div className="fixed inset-0 z-50 bg-bg">
-          <MapContainer
-            center={center}
-            zoom={11}
-            zoomSnap={0.25}
-            zoomControl={false}
-            style={{ height: "100vh", width: "100vw" }}
-          >
-            <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} layers={layers} />
-          </MapContainer>
+          <MapErrorBoundary>
+            <MapContainer
+              center={center}
+              zoom={11}
+              zoomSnap={0.25}
+              zoomControl={false}
+              style={{ height: "100vh", width: "100vw" }}
+            >
+              <MapLayers analysis={analysis} scenario={scenario} basemap={basemap} layers={layers} />
+            </MapContainer>
+          </MapErrorBoundary>
           <button
             type="button"
             aria-label="Close full screen"

@@ -16,6 +16,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Crosshair, Route } from "lucide-react";
 import { toLatLng } from "@/lib/format";
+import { MapErrorBoundary } from "@/components/MapErrorBoundary";
 import type { LonLat } from "@/lib/types";
 
 // Keyless Esri World Dark Gray basemap (no API key required).
@@ -101,12 +102,13 @@ export function SpillMap({
 
   return (
     <div className="relative" style={{ height }}>
-      <MapContainer
-        center={initialCenter}
-        zoom={11}
-        style={{ height, width: "100%" }}
-        className="z-0"
-      >
+      <MapErrorBoundary>
+        <MapContainer
+          center={initialCenter}
+          zoom={11}
+          style={{ height, width: "100%" }}
+          className="z-0"
+        >
         <TileLayer attribution={TILE_ATTRIBUTION} url={BASE_TILES} />
         <TileLayer url={LABEL_TILES} />
         <MapRefCapture onMap={setMap} />
@@ -177,6 +179,7 @@ export function SpillMap({
           />
         )}
       </MapContainer>
+      </MapErrorBoundary>
 
       <div className="absolute right-3 top-3 z-20 flex flex-col gap-1.5">
         <button
