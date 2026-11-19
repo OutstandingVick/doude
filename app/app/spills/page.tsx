@@ -19,9 +19,23 @@ const STATUS: Record<SpillStatus, { label: string; tone: PulseTone }> = {
   closed: { label: "Closed", tone: "success" },
 };
 
+function FilterChip({ label, active, href }: { label: string; active: boolean; href: string }) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+        active ? "bg-text text-white" : "bg-surface3 text-muted hover:text-text"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}
+
 function SpillsTable() {
   const searchParams = useSearchParams();
   const q = (searchParams.get("q") ?? "").toLowerCase();
+  const status = searchParams.get("status") ?? "";
   const [spills, setSpills] = useState<SpillSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,25 +61,27 @@ function SpillsTable() {
     return <Skeleton className="h-64" />;
   }
 
-  const filtered = q
-    ? spills.filter((s) => {
-        const km = s.location_m != null ? formatKm(s.location_m) : "";
-        return (
-          s.id.toLowerCase().includes(q) ||
-          s.pipeline_id.toLowerCase().includes(q) ||
-          km.toLowerCase().includes(q)
-        );
-      })
-    : spills;
+  const filtered = spills.filter((s) => {
+    if (status && s.status !== status) return false;
+    if (!q) return true;
+    const km = s.location_m != null ? formatKm(s.location_m) : "";
+    return (
+      s.id.toLowerCase().includes(q) ||
+      s.pipeline_id.toLowerCase().includes(q) ||
+      km.toLowerCase().includes(q)
+    );
+  });
 
   if (filtered.length === 0) {
     return (
       <div className="card">
         <EmptyState
           icon={<Siren className="h-6 w-6" />}
-          title={q ? "No spills match your search" : "No spills recorded yet"}
+          title={q || status ? "No spills match your filters" : "No spills recorded yet"}
           description={
-            q ? `Nothing matches “${q}”.` : "Run an analysis from the map to record the first spill."
+            q || status
+              ? "Try clearing the search or status filter."
+              : "Run an analysis from the map to record the first spill."
           }
         />
       </div>
@@ -73,7 +89,20 @@ function SpillsTable() {
   }
 
   return (
-    <div className="card overflow-hidden p-0">
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-[0.08em] text-faint">Status</span>
+        <FilterChip label="All" active={status === ""} href="/spills" />
+        {(Object.keys(STATUS) as SpillStatus[]).map((s) => (
+          <FilterChip
+            key={s}
+            label={STATUS[s].label}
+            active={status === s}
+            href={`/spills?status=${s}`}
+          />
+        ))}
+      </div>
+      <div className="card overflow-hidden p-0">
       <table className="w-full text-left text-sm">
         <thead className="border-b border-border-soft bg-surface2 text-[11px] uppercase tracking-[0.08em] text-faint">
           <tr>
@@ -118,6 +147,7 @@ function SpillsTable() {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

@@ -6,12 +6,23 @@ import { Menu, Search, Settings, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useAnalysis } from "@/components/AnalysisProvider";
 import { formatDateTime } from "@/lib/format";
+import { useOutsideClose } from "@/lib/useOutsideClose";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { AvatarMenu } from "@/components/AvatarMenu";
+
+const STATUS_FILTERS = [
+  { id: "", label: "All statuses" },
+  { id: "detected", label: "Detected" },
+  { id: "jiv", label: "JIV" },
+  { id: "cleanup", label: "Clean-up" },
+  { id: "closed", label: "Closed" },
+];
 
 function SearchField() {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useOutsideClose<HTMLDivElement>(() => setFilterOpen(false));
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,13 +41,37 @@ function SearchField() {
         aria-label="Search spills, pipelines or KM"
         className="h-11 w-full rounded-[12px] bg-surface3 pl-10 pr-11 text-sm text-text outline-none placeholder:text-faint focus:ring-2 focus:ring-primary"
       />
-      <button
-        type="button"
-        aria-label="Filter"
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-text"
-      >
-        <SlidersHorizontal className="h-4 w-4" />
-      </button>
+      <div ref={filterRef} className="absolute right-2 top-1/2 -translate-y-1/2">
+        <button
+          type="button"
+          aria-label="Filter"
+          aria-expanded={filterOpen}
+          onClick={() => setFilterOpen((o) => !o)}
+          className="text-faint hover:text-text"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+        </button>
+        {filterOpen && (
+          <div className="absolute right-0 top-8 z-50 w-44 overflow-hidden rounded-[12px] border border-border bg-surface p-1.5 shadow-lg">
+            <div className="px-2 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+              Filter by status
+            </div>
+            {STATUS_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => {
+                  setFilterOpen(false);
+                  router.push(f.id ? `/spills?status=${f.id}` : "/spills");
+                }}
+                className="flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left text-sm text-text hover:bg-surface2"
+              >
+                <span className="flex-1">{f.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </form>
   );
 }
