@@ -6,6 +6,7 @@ import { Copy, Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Uplo
 import { useParams, useSearchParams } from "next/navigation";
 import { useAnalysis } from "@/components/AnalysisProvider";
 import { Tabs } from "@/components/Tabs";
+import { CreateReportDialog } from "@/components/CreateReportDialog";
 import { StatusPill, type PulseTone } from "@/components/StatusPill";
 import { CopyField } from "@/components/CopyField";
 import { Skeleton } from "@/components/Skeleton";
@@ -29,6 +30,7 @@ import type {
   ScenarioResponse,
   SpillDetail,
   SpillStatus,
+  SpillSummary,
 } from "@/lib/types";
 
 const SpillMap = dynamic(
@@ -87,6 +89,7 @@ export default function SpillDetailPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [note, setNote] = useState("");
   const [advancing, setAdvancing] = useState(false);
+  const [reportKind, setReportKind] = useState<"form-b" | "form-c" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +104,10 @@ export default function SpillDetailPage() {
       cancelled = true;
     };
   }, [spillId]);
+
+  function refreshSpill() {
+    getSpill(spillId).then(setSpill).catch(() => undefined);
+  }
 
   async function handleAdvance(next: SpillStatus) {
     setAdvancing(true);
@@ -267,14 +274,69 @@ export default function SpillDetailPage() {
           </>
         )}
         {tab === "Regulatory forms" && (
-          <RegulatoryTab spillId={spill.id} analysis={analysis} />
+          <RegulatoryTab
+            spillId={spill.id}
+            analysis={analysis}
+            status={spill.status}
+            formA={spill.form_a}
+            onGenerateForm={(kind) => setReportKind(kind)}
+          />
         )}
         {tab === "Evidence" && (
           <EvidenceUploadTab spillId={spill.id} evidence={spill.evidence} />
         )}
         {tab === "Audit log" && <AuditLogTab audit={spill.audit} />}
       </div>
+
+      {reportKind && (
+        <FormDialog
+          kind={reportKind}
+          spill={spill}
+          onClose={() => setReportKind(null)}
+          onCreated={refreshSpill}
+        />
+      )}
     </div>
+  );
+}
+
+function FormDialog({
+  kind,
+  spill,
+  onClose,
+  onCreated,
+}: {
+  kind: "form-b" | "form-c";
+  spill: SpillDetail;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const summary: SpillSummary = {
+    id: spill.id,
+    pipeline_id: spill.pipeline_id,
+    status: spill.status,
+    detected_at: spill.detected_at,
+    estimated_start: spill.estimated_start,
+    shut_in_at: spill.shut_in_at,
+    location_m: spill.location_m,
+    location_lon: spill.location_lon,
+    location_lat: spill.location_lat,
+    volume_m3: spill.volume_m3,
+    volume_bbl: spill.volume_bbl,
+    uncertainty_pct: spill.uncertainty_pct,
+    input_hash: spill.input_hash,
+    report_hash: spill.report_hash,
+    created_at: spill.created_at,
+    updated_at: spill.updated_at,
+    evidence_count: spill.evidence.length,
+  };
+  return (
+    <CreateReportDialog
+      initialKind={kind}
+      spills={[summary]}
+      onClose={onClose}
+      onCreated={onCreated}
+    />
   );
 }
 
@@ -454,23 +516,44 @@ function ImpactTab({ analysis }: { analysis: AnalyzeResponse }) {
   );
 }
 
-function RegulatoryTab({ spillId, analysis }: { spillId: string; analysis: AnalyzeResponse | null }) {
+function RegulatoryTab({
+  spillId,
+  analysis,
+  status,
+  formA,
+  onGenerateForm,
+}: {
+  spillId: string;
+  analysis: AnalyzeResponse | null;
+  status: SpillStatus;
+  formA: { filed: boolean; late: boolean } | null;
+  onGenerateForm: (kind: "form-b" | "form-c") => void;
+}) {
   const detectedAt = analysis?.leak?.detected_at;
   const deadline = detectedAt ? new Date(Date.parse(detectedAt) + 24 * 3600 * 1000) : null;
+  const idx = FLOW.indexOf(status);
+
+  const formAStatus = formA?.filed ? (formA.late ? "Filed late" : "Filed") : "Draft ready";
+  const formATone = formA?.filed ? (formA.late ? ("warn" as PulseTone) : ("success" as PulseTone)) : ("success" as PulseTone);
+
+  const forms: { kind: "form-b" | "form-c"; name: string; desc: string; ready: boolean; status: string; tone: PulseTone }[] = [
+    { kind: "form-b", name: "EGASPIN Form B", desc: "Spill response · within 2 weeks", ready: idx >= 1, status: idx >= 1 ? "Ready" : "Pending JIV", tone: idx >= 1 ? "info" : "warn" },
+    { kind: "form-c", name: "EGASPIN Form C", desc: "Clean-up report", ready: idx >= 2, status: idx >= 2 ? "Ready" : "Pending clean-up", tone: idx >= 2 ? "info" : "neutral" },
+  ];
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       <div className="rounded-xl border border-border bg-surface p-5">
         <div className="text-sm font-medium text-text">EGASPIN Form A</div>
         <div className="mt-0.5 text-xs text-muted">Notification · within 24 h</div>
-        {deadline && (
+        {deadline && !formA?.filed && (
           <div className="mt-3 flex items-center gap-1.5 text-xs text-warn">
             <Clock className="h-3.5 w-3.5" />
             File by {formatUtcFull(deadline.toISOString())}
           </div>
         )}
         <div className="mt-4">
-          <StatusPill tone="success" label="Draft ready" />
+          <StatusPill tone={formATone} label={formAStatus} />
         </div>
         <a
           href={formAPdfUrl(spillId)}
@@ -478,15 +561,12 @@ function RegulatoryTab({ spillId, analysis }: { spillId: string; analysis: Analy
           rel="noreferrer"
           className="mt-4 block w-full rounded-lg bg-primary px-3 py-2 text-center text-sm font-medium text-text transition-colors hover:bg-primary/90"
         >
-          Generate draft
+          {formA?.filed ? "View filed form" : "Generate draft"}
         </a>
       </div>
 
-      {[
-        { name: "EGASPIN Form B", desc: "Spill response · within 2 weeks", status: "Pending JIV", tone: "warn" as PulseTone, tip: "Requires JIV findings" },
-        { name: "EGASPIN Form C", desc: "Clean-up report", status: "Pending clean-up", tone: "neutral" as PulseTone, tip: "Requires clean-up completion" },
-      ].map((form) => (
-        <div key={form.name} className="rounded-xl border border-border bg-surface p-5">
+      {forms.map((form) => (
+        <div key={form.kind} className="rounded-xl border border-border bg-surface p-5">
           <div className="text-sm font-medium text-text">{form.name}</div>
           <div className="mt-0.5 text-xs text-muted">{form.desc}</div>
           <div className="mt-4">
@@ -494,9 +574,8 @@ function RegulatoryTab({ spillId, analysis }: { spillId: string; analysis: Analy
           </div>
           <button
             type="button"
-            disabled
-            title={form.tip}
-            className="mt-4 w-full cursor-not-allowed rounded-lg border border-border px-3 py-2 text-sm text-muted opacity-50"
+            onClick={() => onGenerateForm(form.kind)}
+            className="mt-4 w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-surface2"
           >
             Generate
           </button>
