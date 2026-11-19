@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:layout": "node scripts/check-layout.mjs",
+    "check:controls": "node scripts/check-controls.mjs",
     "check:rounding": "tsx scripts/check-rounding.ts"
   },
   "dependencies": {
