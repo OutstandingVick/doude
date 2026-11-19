@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -34,6 +35,13 @@ def _now() -> str:
 
 
 BUSY_TIMEOUT_MS = 10000
+
+# Process-wide write lock. uvicorn runs sync endpoints on a threadpool, so
+# several requests can hold their own SQLite connection at once. BEGIN
+# IMMEDIATE alone does not reliably serialise the read-then-insert of the
+# audit chain under load, so we hold this lock across the whole write
+# transaction to guarantee one writer at a time in this process.
+_WRITE_LOCK = threading.Lock()
 
 
 def connect(path: Optional[str] = None, check_same_thread: bool = True) -> sqlite3.Connection:
@@ -63,18 +71,20 @@ def write_transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
 
     ``BEGIN IMMEDIATE`` takes SQLite's write lock up front, so reads made in
     the block (e.g. the last audit ``entry_hash``) cannot go stale before the
-    insert. Nested use joins the outer transaction.
+    insert. Nested use joins the outer transaction. A process-wide lock keeps
+    concurrent requests from interleaving their read-then-write.
     """
     if conn.in_transaction:
         yield conn
         return
-    conn.execute("BEGIN IMMEDIATE")
-    try:
-        yield conn
-    except BaseException:
-        conn.execute("ROLLBACK")
-        raise
-    conn.execute("COMMIT")
+    with _WRITE_LOCK:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            yield conn
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+        conn.execute("COMMIT")
 
 
 def init_db(conn: sqlite3.Connection) -> None:
