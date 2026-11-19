@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ExpandButton } from "@/components/ExpandButton";
+import { ExpandModal } from "@/components/ExpandModal";
 import { formatInt, formatNumber } from "@/lib/format";
 import type { AnalyzeResponse, ReadingsResponse } from "@/lib/types";
 
@@ -16,7 +17,17 @@ interface HourBin {
   leaking: boolean;
 }
 
-export function LeakRateChart({ analysis, readings }: LeakRateChartProps) {
+function LeakRateChartBody({
+  analysis,
+  readings,
+  className,
+  chartHeight,
+}: {
+  analysis: AnalyzeResponse;
+  readings: ReadingsResponse | null;
+  className?: string;
+  chartHeight?: number;
+}) {
   const q = analysis.quantification;
   const [low, high] = q?.volume_range_m3 ?? [0, 0];
   const leak = analysis.leak;
@@ -97,13 +108,8 @@ export function LeakRateChart({ analysis, readings }: LeakRateChartProps) {
   const tooltipX = Math.min(Math.max(peakX - tooltipW / 2, padL), W - padR - tooltipW);
 
   return (
-    <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex items-center justify-between">
-        <h2 className="card-title">Leak rate</h2>
-        <ExpandButton />
-      </div>
-
-      <div className="mt-3 space-y-1 text-sm">
+    <div className={className}>
+      <div className="space-y-1 text-sm">
         <div>
           <span className="text-faint">Released: </span>
           <span className="font-medium tabular-nums text-text">
@@ -118,7 +124,7 @@ export function LeakRateChart({ analysis, readings }: LeakRateChartProps) {
         </div>
       </div>
 
-      <div ref={ref} className="mt-3 min-h-0 flex-1">
+      <div ref={ref} className="mt-3 min-h-0 flex-1" style={chartHeight ? { height: chartHeight } : undefined}>
         {W > 0 && H > 0 && n > 0 && (
           <svg width={W} height={H} role="img" aria-label="Leak rate per hour">
             <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} stroke="#E7E7E2" strokeWidth={1} />
@@ -171,5 +177,32 @@ export function LeakRateChart({ analysis, readings }: LeakRateChartProps) {
         )}
       </div>
     </div>
+  );
+}
+
+export function LeakRateChart({ analysis, readings }: LeakRateChartProps) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <>
+      <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="flex items-center justify-between">
+          <h2 className="card-title">Leak rate</h2>
+          <ExpandButton onClick={() => setExpanded(true)} />
+        </div>
+        <LeakRateChartBody
+          analysis={analysis}
+          readings={readings}
+          className="mt-3 flex min-h-0 flex-1 flex-col"
+        />
+      </div>
+      <ExpandModal open={expanded} onClose={() => setExpanded(false)} title="Leak rate">
+        <LeakRateChartBody
+          analysis={analysis}
+          readings={readings}
+          className="flex flex-col"
+          chartHeight={460}
+        />
+      </ExpandModal>
+    </>
   );
 }

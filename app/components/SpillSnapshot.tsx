@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Info } from "lucide-react";
 import Link from "next/link";
 import { ExpandButton } from "@/components/ExpandButton";
+import { ExpandModal } from "@/components/ExpandModal";
 import { evidenceUrl, verify } from "@/lib/api";
 import { formatCoord, formatKm, roundHalfUp, toLatLng } from "@/lib/format";
 import { useOutsideClose } from "@/lib/useOutsideClose";
@@ -36,6 +37,7 @@ export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSn
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoPos, setInfoPos] = useState<{ top: number; left: number } | null>(null);
   const infoRef = useOutsideClose<HTMLDivElement>(() => setInfoOpen(false));
+  const [expanded, setExpanded] = useState(false);
   const leak = analysis.leak;
   const images = evidence.filter((e) => e.content_type.startsWith("image/"));
   const hasEvidence = images.length > 0;
@@ -55,13 +57,8 @@ export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSn
 
   const terrain = leak?.terrain === "water" ? "Water" : "Land";
 
-  return (
-    <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex items-center justify-between">
-        <h2 className="card-title">Spill snapshot</h2>
-        <ExpandButton />
-      </div>
-
+  const body = (
+    <>
       <div className="mt-3 -mx-5 flex items-center justify-center gap-3 overflow-hidden py-1">
         <div className="h-24 w-24 shrink-0 rounded-[14px] bg-gradient-to-br from-surface2 to-primary/25 opacity-60" />
         <div className="relative h-[120px] w-[140px] shrink-0 overflow-hidden rounded-[14px]">
@@ -143,7 +140,22 @@ export function SpillSnapshot({ analysis, scenario, spillId, evidence }: SpillSn
           </Link>
         </div>
       )}
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="flex items-center justify-between">
+          <h2 className="card-title">Spill snapshot</h2>
+          <ExpandButton onClick={() => setExpanded(true)} />
+        </div>
+        {body}
+      </div>
+      <ExpandModal open={expanded} onClose={() => setExpanded(false)} title="Spill snapshot">
+        {body}
+      </ExpandModal>
+    </>
   );
 }
 

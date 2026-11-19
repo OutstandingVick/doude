@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Calendar, Check, Eye, FileText, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ExpandButton } from "@/components/ExpandButton";
+import { ExpandModal } from "@/components/ExpandModal";
 import { fileFormA, formAPdfUrl, getSpill } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { isReadOnly, useSettings } from "@/lib/settings";
@@ -50,6 +51,7 @@ interface Row {
 export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTimelineProps) {
   const [now] = useState(() => Date.now());
   const [openRow, setOpenRow] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [audit, setAudit] = useState<AuditEntry[] | null>(null);
   const [formA, setFormA] = useState<{ filed: boolean; late: boolean; reference: string | null; filed_at: string | null } | null>(null);
   const [filing, setFiling] = useState(false);
@@ -121,22 +123,8 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
     return entry?.actor ?? "auto";
   }
 
-  return (
-    <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex items-center justify-between">
-        <h2 className="card-title">Regulatory timeline</h2>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/spills/${spillId}?tab=forms`}
-            aria-label="Open regulatory forms"
-            className="icon-btn h-8 w-8"
-          >
-            <Calendar className="h-4 w-4" />
-          </Link>
-          <ExpandButton />
-        </div>
-      </div>
-
+  const body = (
+    <>
       <div className="mt-4 text-[11px] font-medium uppercase tracking-[0.12em] text-faint">
         {MONTH_NAMES[month]}
       </div>
@@ -205,7 +193,31 @@ export function RegulatoryTimeline({ analysis, spillId, status }: RegulatoryTime
           );
         })}
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="flex items-center justify-between">
+          <h2 className="card-title">Regulatory timeline</h2>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/spills/${spillId}?tab=forms`}
+              aria-label="Open regulatory forms"
+              className="icon-btn h-8 w-8"
+            >
+              <Calendar className="h-4 w-4" />
+            </Link>
+            <ExpandButton onClick={() => setExpanded(true)} />
+          </div>
+        </div>
+        {body}
+      </div>
+      <ExpandModal open={expanded} onClose={() => setExpanded(false)} title="Regulatory timeline">
+        {body}
+      </ExpandModal>
+    </>
   );
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Droplets, ScrollText, ShieldCheck } from "lucide-react";
 import { ExpandButton } from "@/components/ExpandButton";
+import { ExpandModal } from "@/components/ExpandModal";
 import { auditVerify, reportPdfUrl } from "@/lib/api";
 import { formatBbl } from "@/lib/format";
 import type { AnalyzeResponse, AuditVerification } from "@/lib/types";
@@ -31,8 +32,8 @@ export function ResponseIntegrity({
   auditCount,
   evidenceCount,
 }: ResponseIntegrityProps) {
-  const hashPrefix = analysis.report.report_hash.replace("sha256:", "").slice(0, 10);
   const [integrity, setIntegrity] = useState<AuditVerification | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +49,51 @@ export function ResponseIntegrity({
     };
   }, [auditCount]);
 
+  const integrityLabel = integrity === null ? "Checking…" : integrity.ok ? "Verified" : "Broken";
+
+  const body = (
+    <IntegrityBody
+      analysis={analysis}
+      spillId={spillId}
+      auditCount={auditCount}
+      evidenceCount={evidenceCount}
+      integrity={integrity}
+      integrityLabel={integrityLabel}
+    />
+  );
+
+  return (
+    <>
+      <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="flex items-center justify-between">
+          <h2 className="card-title">Response &amp; integrity</h2>
+          <ExpandButton onClick={() => setExpanded(true)} />
+        </div>
+        {body}
+      </div>
+      <ExpandModal open={expanded} onClose={() => setExpanded(false)} title="Response &amp; integrity">
+        {body}
+      </ExpandModal>
+    </>
+  );
+}
+
+function IntegrityBody({
+  analysis,
+  spillId,
+  auditCount,
+  evidenceCount,
+  integrity,
+  integrityLabel,
+}: {
+  analysis: AnalyzeResponse;
+  spillId: string;
+  auditCount: number;
+  evidenceCount: number;
+  integrity: AuditVerification | null;
+  integrityLabel: string;
+}) {
+  const hashPrefix = analysis.report.report_hash.replace("sha256:", "").slice(0, 10);
   const fanAreaRef = useRef<HTMLDivElement>(null);
   const [fanScale, setFanScale] = useState(1);
 
@@ -66,15 +112,8 @@ export function ResponseIntegrity({
     return () => observer.disconnect();
   }, []);
 
-  const integrityLabel = integrity === null ? "Checking…" : integrity.ok ? "Verified" : "Broken";
-
   return (
-    <div data-card className="card flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex items-center justify-between">
-        <h2 className="card-title">Response &amp; integrity</h2>
-        <ExpandButton />
-      </div>
-
+    <>
       {/* The document fan is drawn at 300×190 and scaled down to fit the
           space left above the stats row, so it never overlaps them. */}
       <div ref={fanAreaRef} className="relative my-3 flex min-h-0 flex-1 items-center justify-center">
@@ -86,12 +125,12 @@ export function ResponseIntegrity({
             <div className="text-sm font-medium text-text">Form A</div>
             <div className="mt-1 text-[11px] text-faint">Draft</div>
           </div>
-  
+
           <div className="absolute right-4 top-4 flex h-[150px] w-[118px] rotate-[8deg] flex-col items-center justify-center rounded-[14px] border border-border-soft bg-surface2 p-3 text-center shadow-md">
             <div className="text-sm font-medium text-text">Evidence</div>
             <div className="mt-1 text-[11px] text-faint">{evidenceCount} files</div>
           </div>
-  
+
           <a
             href={reportPdfUrl(spillId)}
             aria-label="Download spill report"
@@ -127,7 +166,7 @@ export function ResponseIntegrity({
           tone={integrity === null ? undefined : integrity.ok ? "success" : "danger"}
         />
       </div>
-    </div>
+    </>
   );
 }
 
