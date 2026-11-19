@@ -1,7 +1,5 @@
 # Feasibility3D
 
-> **Feasibility3D** — Izon for "found". *Every spill found, measured and recorded.*
-
 Oil spills in the Niger Delta are self-reported by the operators, and dispute
 over the released volume drives most compensation claims. Regulators at NOSDRA
 and NUPRC have no independent way to check those numbers. Feasibility3D gives them a
