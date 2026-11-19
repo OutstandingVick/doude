@@ -1,4 +1,4 @@
-"""Doude engine API.
+"""Feasibility3D engine API.
 
 Run from the repo root:
     pip install -r engine/requirements.txt
@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from engine import db, forms, locate, pdf_report, report, reports, written
 
 ROOT = Path(__file__).resolve().parent.parent
-METHOD_VERSION = "doude-method v0.1"
+METHOD_VERSION = "feasibility3d-method v0.1"
 READINGS = ROOT / "data" / "readings.csv"
 
 
@@ -36,7 +36,7 @@ async def lifespan(_app):
     yield
 
 
-app = FastAPI(title="Doude engine", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Feasibility3D engine", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
@@ -86,7 +86,7 @@ def _readings_missing():
 
 
 def _new_temp_pdf() -> Path:
-    fd, name = tempfile.mkstemp(suffix=".pdf", prefix="doude-")
+    fd, name = tempfile.mkstemp(suffix=".pdf", prefix="feasibility3d-")
     os.close(fd)
     return Path(name)
 
@@ -135,11 +135,11 @@ def readings(step: int = Query(10, ge=1)):
 
 
 @app.post("/analyze")
-def analyze(x_doude_actor: str = Header(default="demo-regulator"), conn=Depends(get_conn)):
+def analyze(x_feasibility3d_actor: str = Header(default="demo-regulator"), conn=Depends(get_conn)):
     if not READINGS.exists():
         return _readings_missing()
     response = report.analyze()
-    spill_id = db.save_analysis(conn, response, x_doude_actor)
+    spill_id = db.save_analysis(conn, response, x_feasibility3d_actor)
     result = dict(response)
     result["spill_id"] = spill_id
     return result
@@ -182,10 +182,10 @@ def get_spill(spill_id: str, conn=Depends(get_conn)):
 
 @app.post("/spills/{spill_id}/status")
 def set_status(spill_id: str, update: StatusUpdate,
-               x_doude_actor: str = Header(default="demo-regulator"),
+               x_feasibility3d_actor: str = Header(default="demo-regulator"),
                conn=Depends(get_conn)):
     try:
-        db.set_status(conn, spill_id, update.status, x_doude_actor, update.note)
+        db.set_status(conn, spill_id, update.status, x_feasibility3d_actor, update.note)
     except ValueError as exc:
         return JSONResponse(status_code=400, content={
             "error": "invalid_transition", "message": str(exc)})
@@ -195,7 +195,7 @@ def set_status(spill_id: str, update: StatusUpdate,
 @app.post("/spills/{spill_id}/evidence")
 async def add_evidence(spill_id: str, file: UploadFile = File(...),
                        note: Optional[str] = Form(None),
-                       x_doude_actor: str = Header(default="demo-regulator"),
+                       x_feasibility3d_actor: str = Header(default="demo-regulator"),
                        conn=Depends(get_conn)):
     data = await file.read()
     if len(data) > db.MAX_EVIDENCE_BYTES:
@@ -205,7 +205,7 @@ async def add_evidence(spill_id: str, file: UploadFile = File(...),
         return JSONResponse(status_code=415, content={
             "error": "unsupported_content_type", "message": "unsupported file type"})
     evidence = db.add_evidence(conn, spill_id, file.filename or "file",
-                               file.content_type or "", data, note, x_doude_actor)
+                               file.content_type or "", data, note, x_feasibility3d_actor)
     return evidence
 
 
@@ -231,10 +231,10 @@ def get_audit(spill_id: str, conn=Depends(get_conn)):
 
 @app.post("/spills/{spill_id}/forms/a/filed")
 def file_form_a(spill_id: str, body: FormAFiled,
-                x_doude_actor: str = Header(default="demo-regulator"),
+                x_feasibility3d_actor: str = Header(default="demo-regulator"),
                 conn=Depends(get_conn)):
     try:
-        return db.file_form_a(conn, spill_id, x_doude_actor, body.reference, body.filed_at)
+        return db.file_form_a(conn, spill_id, x_feasibility3d_actor, body.reference, body.filed_at)
     except ValueError as exc:
         return _spill_not_found()
 
@@ -251,20 +251,20 @@ def list_contacts(conn=Depends(get_conn)):
 
 @app.post("/contacts")
 def add_contact(body: ContactIn,
-                x_doude_actor: str = Header(default="demo-regulator"),
+                x_feasibility3d_actor: str = Header(default="demo-regulator"),
                 conn=Depends(get_conn)):
     if not body.name.strip():
         return JSONResponse(status_code=400, content={
             "error": "invalid_contact", "message": "name is required"})
-    return db.add_contact(conn, body.name.strip(), body.email, body.phone, x_doude_actor)
+    return db.add_contact(conn, body.name.strip(), body.email, body.phone, x_feasibility3d_actor)
 
 
 @app.delete("/contacts/{contact_id}")
 def remove_contact(contact_id: int,
-                   x_doude_actor: str = Header(default="demo-regulator"),
+                   x_feasibility3d_actor: str = Header(default="demo-regulator"),
                    conn=Depends(get_conn)):
     try:
-        db.remove_contact(conn, contact_id, x_doude_actor)
+        db.remove_contact(conn, contact_id, x_feasibility3d_actor)
     except ValueError:
         return JSONResponse(status_code=404, content={
             "error": "contact_not_found", "message": "unknown contact id"})
@@ -288,7 +288,7 @@ def report_pdf(spill_id: Optional[str] = None):
     path = _new_temp_pdf()
     pdf_report.build_spill_report(response, scenario, path)
     return FileResponse(path, media_type="application/pdf",
-                        filename="doude-spill-report-%s.pdf" % (spill_id or "SPL-0001"))
+                        filename="feasibility3d-spill-report-%s.pdf" % (spill_id or "SPL-0001"))
 
 
 @app.get("/forms/a.pdf")
@@ -302,7 +302,7 @@ def form_a_pdf(spill_id: Optional[str] = None):
     path = _new_temp_pdf()
     forms.build_form_a(response, scenario, path)
     return FileResponse(path, media_type="application/pdf",
-                        filename="doude-form-a-%s-draft.pdf" % (spill_id or "SPL-0001"))
+                        filename="feasibility3d-form-a-%s-draft.pdf" % (spill_id or "SPL-0001"))
 
 
 @app.get("/forms/a")
@@ -336,7 +336,7 @@ def report_history_file(entry_id: int, conn=Depends(get_conn)):
 
 
 def _report_filename(report_type: str, params: dict) -> str:
-    parts = ["doude", report_type]
+    parts = ["feasibility3d", report_type]
     for key in ("spill_id", "pipeline_id", "from", "to"):
         if params.get(key):
             parts.append(str(params[key]))
@@ -379,11 +379,11 @@ def report_prefill(kind: str, spill_id: str, conn=Depends(get_conn)):
 
 @app.post("/reports/written")
 def create_written_report(body: WrittenReportIn,
-                          x_doude_actor: str = Header(default="demo-regulator"),
+                          x_feasibility3d_actor: str = Header(default="demo-regulator"),
                           conn=Depends(get_conn)):
     try:
         return written.create_report(conn, body.kind, body.spill_id, body.fields, body.sections,
-                                     body.title, x_doude_actor, locate.load_scenario(),
+                                     body.title, x_feasibility3d_actor, locate.load_scenario(),
                                      body.template_id)
     except written.FormError as exc:
         return _form_error(exc)
@@ -410,21 +410,21 @@ def list_report_templates(conn=Depends(get_conn)):
 
 @app.post("/reports/templates")
 def save_report_template(body: TemplateIn,
-                         x_doude_actor: str = Header(default="demo-regulator"),
+                         x_feasibility3d_actor: str = Header(default="demo-regulator"),
                          conn=Depends(get_conn)):
     try:
         return written.save_template(conn, body.name, body.kind, body.fields, body.sections,
-                                     x_doude_actor)
+                                     x_feasibility3d_actor)
     except written.FormError as exc:
         return _form_error(exc)
 
 
 @app.delete("/reports/templates/{template_id}")
 def delete_report_template(template_id: int,
-                           x_doude_actor: str = Header(default="demo-regulator"),
+                           x_feasibility3d_actor: str = Header(default="demo-regulator"),
                            conn=Depends(get_conn)):
     try:
-        written.delete_template(conn, template_id, x_doude_actor)
+        written.delete_template(conn, template_id, x_feasibility3d_actor)
     except written.FormError as exc:
         return _form_error(exc)
     return {"id": template_id, "deleted": True}
@@ -438,7 +438,7 @@ def report_pdf_typed(
     date_from: Optional[str] = Query(None, alias="from"),
     date_to: Optional[str] = Query(None, alias="to"),
     download: bool = False,
-    x_doude_actor: str = Header(default="demo-regulator"),
+    x_feasibility3d_actor: str = Header(default="demo-regulator"),
     conn=Depends(get_conn),
 ):
     if report_type not in reports.REPORT_TYPE_IDS:
@@ -451,7 +451,7 @@ def report_pdf_typed(
     except reports.ReportError as exc:
         return JSONResponse(status_code=exc.status, content={
             "error": "invalid_report_request", "message": str(exc)})
-    entry = db.record_report(conn, report_type, params, data, x_doude_actor)
+    entry = db.record_report(conn, report_type, params, data, x_feasibility3d_actor)
     disposition = "attachment" if download else "inline"
     return Response(content=data, media_type="application/pdf", headers={
         "Content-Disposition": '%s; filename="%s"' % (disposition, _report_filename(report_type, params)),

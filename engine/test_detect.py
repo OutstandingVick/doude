@@ -1,4 +1,4 @@
-"""Tests for the Doude leak and shut-in detection engine."""
+"""Tests for the Feasibility3D leak and shut-in detection engine."""
 
 import pytest
 

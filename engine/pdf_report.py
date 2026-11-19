@@ -100,7 +100,7 @@ def _header_band(response, scenario) -> List[Flowable]:
     pipeline = scenario.get("pipeline", {})
     generated = response.get("report", {}).get("generated_at", "")
     out = []
-    out.append(_P("DOUDE — Spill Report", "title"))
+    out.append(_P("FEASIBILITY3D — Spill Report", "title"))
     out.append(Spacer(1, 1 * mm))
     out.append(_P(
         "<font color='#14B8A6'>SPL-0001</font> · %s · %s · generated %s"
@@ -305,7 +305,7 @@ def _method_integrity_section(response) -> List[Flowable]:
     out.append(_P(report_hash, "mono"))
     out.append(Spacer(1, 4 * mm))
     out.append(_P(
-        "Re-running doude-method v0.1 on the same input file reproduces this "
+        "Re-running feasibility3d-method v0.1 on the same input file reproduces this "
         "report_hash exactly. Any change to inputs or results changes the hash.",
         "small"))
     out.append(Spacer(1, 6 * mm))
@@ -356,7 +356,7 @@ def _make_canvas(report_hash, method_version):
             self.setFillColor(MUTED)
             self.drawString(
                 18 * mm, 9 * mm,
-                "Doude · %s · Page %d of %d" % (method_version, self._pageNumber, total))
+                "Feasibility3D · %s · Page %d of %d" % (method_version, self._pageNumber, total))
             self.drawRightString(page[0] - 18 * mm, 9 * mm, short)
             self.restoreState()
 
@@ -376,8 +376,8 @@ def build_spill_report(response, scenario, out_path) -> Path:
         leftMargin=18 * mm,
         topMargin=16 * mm,
         bottomMargin=18 * mm,
-        title="Doude Spill Report",
-        author="Doude",
+        title="Feasibility3D Spill Report",
+        author="Feasibility3D",
     )
 
     story = _header_band(response, scenario)

@@ -1,4 +1,4 @@
-"""Doude — Day 1: build a test scenario ("fake world") and its ground truth.
+"""Feasibility3D — Day 1: build a test scenario ("fake world") and its ground truth.
 
 Run:  python engine/build_scenario.py [--name NAME] [--hole-mm MM]
        [--leak-km KM] [--out PATH] [--detect-minutes N] [--location-tolerance-m M]
@@ -33,7 +33,7 @@ LEAK_START = "2026-11-03T14:00:00Z"
 SHUT_IN = "2026-11-05T10:00:00Z"   # JIV done, trunk line shut in
 
 # ---------------- Scenario-specific defaults ----------------
-DEFAULT_NAME = "Doude test scenario 01 — trunk line leak into creek"
+DEFAULT_NAME = "Feasibility3D test scenario 01 — trunk line leak into creek"
 DEFAULT_HOLE_MM = 25.0
 DEFAULT_LEAK_KM = 13.4
 DEFAULT_DETECT_MINUTES = 15
@@ -121,7 +121,7 @@ def build_scenario(name=DEFAULT_NAME, hole_mm=DEFAULT_HOLE_MM, leak_km=DEFAULT_L
 
     return {
         "name": name,
-        "method_version": "doude-method v0.1",
+        "method_version": "feasibility3d-method v0.1",
         "pipeline": {
             "id": "BYS-TL-01",
             "type": "trunk_line",
@@ -183,7 +183,7 @@ def build_scenario(name=DEFAULT_NAME, hole_mm=DEFAULT_HOLE_MM, leak_km=DEFAULT_L
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Build a Doude test scenario.")
+    parser = argparse.ArgumentParser(description="Build a Feasibility3D test scenario.")
     parser.add_argument("--name", default=DEFAULT_NAME)
     parser.add_argument("--hole-mm", type=float, default=DEFAULT_HOLE_MM)
     parser.add_argument("--leak-km", type=float, default=DEFAULT_LEAK_KM)

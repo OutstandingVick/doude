@@ -186,7 +186,7 @@
     ]
   },
   "report": {
-    "method_version": "doude-method v0.1",
+    "method_version": "feasibility3d-method v0.1",
     "generated_at": "2026-11-11T12:03:03Z",
     "input_hash": "sha256:3fb8a030cdf0e8c4c1ba5717b0e08fe3c367cb18ff8eb35786e249a9154a2cad",
     "report_hash": "sha256:c3c01a17613480c20397af9945d4244e0fd8213979095b26a7ff5a517cab959b"

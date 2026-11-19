@@ -7,7 +7,7 @@
 * **Custom** — a PDF assembled from chosen sections of a spill's record.
 
 Field schemas live here so the API, the app and the PDF share one
-definition. Fields are pre-filled from the stored spill record where Doude
+definition. Fields are pre-filled from the stored spill record where Feasibility3D
 knows the answer; everything else is typed by the regulator. Saved reports
 are immutable: editing creates a new report, and each one is logged to the
 audit chain with the SHA-256 of its PDF.
@@ -184,7 +184,7 @@ def _iso(dt: Optional[datetime]) -> Optional[str]:
 
 
 def prefill(conn: sqlite3.Connection, kind: str, spill_id: str, scenario: Dict) -> Dict:
-    """Return field values Doude can fill from the stored spill record."""
+    """Return field values Feasibility3D can fill from the stored spill record."""
     _kind(kind)
     spill = db.get_spill(conn, spill_id)
     if spill is None:

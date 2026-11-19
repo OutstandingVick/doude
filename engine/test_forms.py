@@ -1,4 +1,4 @@
-"""Tests for the Doude EGASPIN Form A draft."""
+"""Tests for the Feasibility3D EGASPIN Form A draft."""
 
 from datetime import datetime, timedelta
 from pathlib import Path

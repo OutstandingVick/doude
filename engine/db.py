@@ -1,8 +1,8 @@
-"""Persistent data management for Doude (SQLite, standard library).
+"""Persistent data management for Feasibility3D (SQLite, standard library).
 
 Stores pipelines, spill records, evidence files and a tamper-evident audit
-log. The database lives at ``data/doude.db`` (gitignored) and can be
-overridden for tests via the ``DOUDE_DB`` environment variable.
+log. The database lives at ``data/feasibility3d.db`` (gitignored) and can be
+overridden for tests via the ``FEASIBILITY3D_DB`` environment variable.
 """
 
 import hashlib
@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Dict, Iterator, List, Optional
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DB = ROOT / "data" / "doude.db"
+DEFAULT_DB = ROOT / "data" / "feasibility3d.db"
 EVIDENCE_DIR = ROOT / "data" / "evidence"
 REPORTS_DIR = ROOT / "data" / "reports"
 
@@ -37,7 +37,7 @@ BUSY_TIMEOUT_MS = 10000
 
 
 def connect(path: Optional[str] = None, check_same_thread: bool = True) -> sqlite3.Connection:
-    """Open a connection to the Doude database.
+    """Open a connection to the Feasibility3D database.
 
     The connection runs in autocommit mode (``isolation_level=None``) so that
     writes control their own transactions via :func:`write_transaction`. WAL
@@ -46,7 +46,7 @@ def connect(path: Optional[str] = None, check_same_thread: bool = True) -> sqlit
     ``check_same_thread=False`` is only for a request-scoped connection that
     the web framework hands between worker threads sequentially.
     """
-    db_path = path or os.environ.get("DOUDE_DB") or str(DEFAULT_DB)
+    db_path = path or os.environ.get("FEASIBILITY3D_DB") or str(DEFAULT_DB)
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, timeout=BUSY_TIMEOUT_MS / 1000.0, isolation_level=None,
                            check_same_thread=check_same_thread)
@@ -586,7 +586,7 @@ def reset_dev(db_path: Optional[str] = None, assume_yes: bool = False) -> bool:
     """
     import shutil
 
-    target = Path(db_path or os.environ.get("DOUDE_DB") or str(DEFAULT_DB))
+    target = Path(db_path or os.environ.get("FEASIBILITY3D_DB") or str(DEFAULT_DB))
     paths = [target, Path(str(target) + "-wal"), Path(str(target) + "-shm")]
     print("This permanently deletes:")
     for p in paths + [EVIDENCE_DIR, REPORTS_DIR]:
@@ -609,9 +609,9 @@ def reset_dev(db_path: Optional[str] = None, assume_yes: bool = False) -> bool:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Doude database utilities")
+    parser = argparse.ArgumentParser(description="Feasibility3D database utilities")
     parser.add_argument("--reset-dev", action="store_true",
-                        help="delete data/doude.db, data/evidence and data/reports (asks for confirmation)")
+                        help="delete data/feasibility3d.db, data/evidence and data/reports (asks for confirmation)")
     parser.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
     args = parser.parse_args()
     if args.reset_dev:

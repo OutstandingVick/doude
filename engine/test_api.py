@@ -1,4 +1,4 @@
-"""Tests for the Doude FastAPI endpoints."""
+"""Tests for the Feasibility3D FastAPI endpoints."""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,7 +9,7 @@ from engine.main import app
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("DOUDE_DB", str(tmp_path / "api.db"))
+    monkeypatch.setenv("FEASIBILITY3D_DB", str(tmp_path / "api.db"))
     monkeypatch.setattr(db, "EVIDENCE_DIR", tmp_path / "evidence")
     with TestClient(app) as test_client:
         yield test_client

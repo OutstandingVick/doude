@@ -1,4 +1,4 @@
-"""Tests for the Doude environmental-impact engine."""
+"""Tests for the Feasibility3D environmental-impact engine."""
 
 import math
 from pathlib import Path

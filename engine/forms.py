@@ -121,7 +121,7 @@ def form_a_data(response, scenario) -> Dict:
             "volume_bbl": quant.get("volume_bbl"),
             "volume_m3": quant.get("volume_m3"),
             "volume_range_m3": quant.get("volume_range_m3"),
-            "method": "pressure/flow mass balance, doude-method v0.1",
+            "method": "pressure/flow mass balance, feasibility3d-method v0.1",
             "uncertainty_pct": quant.get("uncertainty_pct"),
         },
         "cause": "Under investigation — to be established at JIV",
@@ -218,7 +218,7 @@ def build_form_a(response, scenario, out_path) -> Path:
         leftMargin=18 * mm,
         topMargin=16 * mm,
         bottomMargin=16 * mm,
-        title="Doude Form A (Draft)",
+        title="Feasibility3D Form A (Draft)",
     )
 
     story: List[Flowable] = []

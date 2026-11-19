@@ -1,4 +1,4 @@
-"""Doude — Phase 1: generate the sensor feed for a scenario.
+"""Feasibility3D — Phase 1: generate the sensor feed for a scenario.
 
 Run from the repo root:
     python engine/generate.py            # writes data/readings.csv

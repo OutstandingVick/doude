@@ -1,4 +1,4 @@
-"""Tests for the Doude leak-location engine."""
+"""Tests for the Feasibility3D leak-location engine."""
 
 import pytest
 

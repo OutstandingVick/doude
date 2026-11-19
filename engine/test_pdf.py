@@ -1,4 +1,4 @@
-"""Tests for the Doude PDF spill report."""
+"""Tests for the Feasibility3D PDF spill report."""
 
 import pypdf
 import pytest

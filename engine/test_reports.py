@@ -14,7 +14,7 @@ from engine.main import app
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("DOUDE_DB", str(tmp_path / "reports.db"))
+    monkeypatch.setenv("FEASIBILITY3D_DB", str(tmp_path / "reports.db"))
     monkeypatch.setattr(db, "EVIDENCE_DIR", tmp_path / "evidence")
     monkeypatch.setattr(db, "REPORTS_DIR", tmp_path / "reports")
     with TestClient(app) as test_client:

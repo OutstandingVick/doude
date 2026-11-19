@@ -1,4 +1,4 @@
-"""Regulator reports for Doude (reportlab PDFs).
+"""Regulator reports for Feasibility3D (reportlab PDFs).
 
 Adds three reports alongside the existing spill report and Form A draft:
 
@@ -42,7 +42,7 @@ from engine.pdf_report import (
     _section_heading,
 )
 
-METHOD_VERSION = "doude-method v0.1"
+METHOD_VERSION = "feasibility3d-method v0.1"
 CONTENT_WIDTH = A4[0] - 36 * mm
 M3_PER_BBL = 0.158987294928
 
@@ -117,13 +117,13 @@ def _fmt_day(dt: Optional[datetime]) -> str:
 def _doc(buffer, title: str) -> SimpleDocTemplate:
     return SimpleDocTemplate(
         buffer, pagesize=A4, rightMargin=18 * mm, leftMargin=18 * mm,
-        topMargin=16 * mm, bottomMargin=18 * mm, title=title, author="Doude",
+        topMargin=16 * mm, bottomMargin=18 * mm, title=title, author="Feasibility3D",
     )
 
 
 def _header(title: str, subtitle: str, generated_at: datetime) -> List:
     return [
-        _P("DOUDE — %s" % title, "title"),
+        _P("FEASIBILITY3D — %s" % title, "title"),
         Spacer(1, 1 * mm),
         _P("%s · generated %s" % (subtitle, _fmt_utc(_iso(generated_at))), "subtitle"),
         Spacer(1, 1 * mm),
@@ -204,7 +204,7 @@ def compliance_items(spill: Dict, audit: List[Dict], now: datetime,
     detection, JIV one day after shut-in, Form B 14 days and Form C 30 days
     after detection. Form A is met when its filing is recorded
     (``form_a_filed``). Forms B/C and the JIV are not filed separately in
-    Doude v0.1, so they count as met when the spill status reaches the
+    Feasibility3D v0.1, so they count as met when the spill status reaches the
     matching stage (JIV, clean-up, closed).
     """
     detected = _parse_ts(spill.get("detected_at"))
@@ -290,11 +290,11 @@ def build_compliance(conn, pipeline_id: Optional[str], now: Optional[datetime] =
         story.append(_P("No spills recorded for this scope.", "body"))
     story += [Spacer(1, 4 * mm), _P(
         "Due dates: Form A 24 h after detection; JIV 1 day after shut-in; Form B 14 days and "
-        "Form C 30 days after detection. Form A is met when its filing is recorded in Doude. "
+        "Form C 30 days after detection. Form A is met when its filing is recorded in Feasibility3D. "
         "JIV, Form B and Form C are not filed separately in v0.1: they count as met when the "
         "spill status reaches JIV, clean-up or closed. Rows with overdue items are "
         "highlighted.", "small")]
-    return _build(story, "Doude Compliance Status Report", "compliance")
+    return _build(story, "Feasibility3D Compliance Status Report", "compliance")
 
 
 # --------------------------------------------------------------- audit
@@ -356,7 +356,7 @@ def build_audit(conn, spill_id: str, now: Optional[datetime] = None) -> bytes:
     story.append(_grid(["File", "Type", "Size", "By", "Uploaded", "SHA-256"], ev_rows,
                        [w * 0.15, w * 0.11, w * 0.08, w * 0.12, w * 0.16, w * 0.38])
                  if ev_rows else _P("No evidence files uploaded.", "body"))
-    return _build(story, "Doude Audit & Integrity Report", report_hash or spill_id)
+    return _build(story, "Feasibility3D Audit & Integrity Report", report_hash or spill_id)
 
 
 def _fmt_size(n: int) -> str:
@@ -509,7 +509,7 @@ def build_period(conn, date_from: str, date_to: str, now: Optional[datetime] = N
     story.append(_grid(["Spill", "Pipeline", "Detected", "bbl", "Time to detect", "Status"], rows,
                        [w * 0.13, w * 0.17, w * 0.25, w * 0.12, w * 0.18, w * 0.15])
                  if rows else _P("No spills detected in this period.", "body"))
-    return _build(story, "Doude Period Summary", "period")
+    return _build(story, "Feasibility3D Period Summary", "period")
 
 
 # ------------------------------------------------------- spill + form A
@@ -529,7 +529,7 @@ def _spill_analysis(conn, spill_id: Optional[str]) -> Tuple[Dict, str]:
 def _file_bytes(builder, *args) -> bytes:
     import os
     import tempfile
-    fd, name = tempfile.mkstemp(suffix=".pdf", prefix="doude-")
+    fd, name = tempfile.mkstemp(suffix=".pdf", prefix="feasibility3d-")
     os.close(fd)
     try:
         builder(*(args + (name,)))

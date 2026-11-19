@@ -1,4 +1,4 @@
-"""Tests for the Doude tamper-evident report."""
+"""Tests for the Feasibility3D tamper-evident report."""
 
 import hashlib
 from datetime import datetime

@@ -1,4 +1,4 @@
-"""Leak and shut-in detection for the Doude oil pipeline.
+"""Leak and shut-in detection for the Feasibility3D oil pipeline.
 
 Reads per-minute sensor readings, establishes a baseline from the first
 48 hours of normal operation, then flags a leak (a sustained flow

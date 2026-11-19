@@ -1,4 +1,4 @@
-"""Tests for the Doude volume-quantification engine."""
+"""Tests for the Feasibility3D volume-quantification engine."""
 
 import pytest
 

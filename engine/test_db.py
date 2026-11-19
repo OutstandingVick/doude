@@ -1,4 +1,4 @@
-"""Tests for the Doude SQLite data layer."""
+"""Tests for the Feasibility3D SQLite data layer."""
 
 import hashlib
 from pathlib import Path
@@ -20,7 +20,7 @@ def response():
 
 @pytest.fixture()
 def conn(tmp_path, monkeypatch, scenario):
-    monkeypatch.setenv("DOUDE_DB", str(tmp_path / "doude.db"))
+    monkeypatch.setenv("FEASIBILITY3D_DB", str(tmp_path / "feasibility3d.db"))
     monkeypatch.setattr(db, "EVIDENCE_DIR", tmp_path / "evidence")
     connection = db.connect()
     db.init_db(connection)
