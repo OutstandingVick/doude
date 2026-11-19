@@ -216,7 +216,7 @@ export function Sidebar() {
 
         <div className="mt-auto">
           <Link
-            href="/docs"
+            href="/help"
             aria-label="Help and docs"
             className={`flex h-11 items-center gap-3 rounded-[12px] text-sm font-medium text-muted transition-colors hover:bg-surface3 hover:text-text ${
               c ? "justify-center px-0" : "px-4"

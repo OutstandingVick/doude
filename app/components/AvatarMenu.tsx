@@ -74,7 +74,7 @@ export function AvatarMenu() {
               Settings
             </Link>
             <Link
-              href="/compliance"
+              href="/help"
               onClick={() => setOpen(false)}
               className="flex items-center gap-2 rounded-[10px] px-2 py-2 text-sm text-text hover:bg-surface2"
             >
