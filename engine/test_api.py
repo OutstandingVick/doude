@@ -6,11 +6,33 @@ from fastapi.testclient import TestClient
 from engine import db
 from engine.main import app
 
+ADMIN_EMAIL = "admin@example.com"
+ADMIN_PASSWORD = "admin-pass-123"
+
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
+    """Authenticated client: COOKIE_SECRET set + first admin bootstrapped."""
     monkeypatch.setenv("FEASIBILITY3D_DB", str(tmp_path / "api.db"))
     monkeypatch.setattr(db, "EVIDENCE_DIR", tmp_path / "evidence")
+    monkeypatch.setenv("COOKIE_SECRET", "test-cookie-secret")
+    monkeypatch.setenv("COOKIE_SECURE", "false")  # allow the cookie over http:// in tests
+    monkeypatch.setenv("ADMIN_EMAIL", ADMIN_EMAIL)
+    monkeypatch.setenv("ADMIN_PASSWORD", ADMIN_PASSWORD)
+    with TestClient(app) as test_client:
+        login = test_client.post("/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+        assert login.status_code == 200
+        yield test_client
+
+
+@pytest.fixture()
+def open_client(tmp_path, monkeypatch):
+    """Open-mode client: no COOKIE_SECRET, so auth is not enforced."""
+    monkeypatch.setenv("FEASIBILITY3D_DB", str(tmp_path / "open.db"))
+    monkeypatch.setattr(db, "EVIDENCE_DIR", tmp_path / "evidence")
+    monkeypatch.delenv("COOKIE_SECRET", raising=False)
+    monkeypatch.delenv("ADMIN_EMAIL", raising=False)
+    monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
     with TestClient(app) as test_client:
         yield test_client
 
@@ -192,3 +214,56 @@ def test_contact_requires_name(client):
 
 def test_contact_remove_unknown_404(client):
     assert client.delete("/contacts/999").status_code == 404
+
+
+# --- Authentication --------------------------------------------------------
+
+def test_admin_bootstrapped_from_env(client):
+    me = client.get("/me").json()
+    assert me["user"]["email"] == ADMIN_EMAIL
+    assert me["user"]["role"] == "admin"
+
+
+def test_health_reports_auth_enabled(client):
+    assert client.get("/health").json()["auth_enabled"] is True
+
+
+def test_login_wrong_password_401(client):
+    r = client.post("/login", json={"email": ADMIN_EMAIL, "password": "nope"})
+    assert r.status_code == 401
+    assert r.json()["error"] == "invalid_credentials"
+
+
+def test_login_unknown_user_401(client):
+    assert client.post("/login", json={"email": "ghost@x.com", "password": "x"}).status_code == 401
+
+
+def test_protected_endpoint_requires_session(tmp_path, monkeypatch):
+    """A fresh client that has not logged in gets 401 on data routes."""
+    monkeypatch.setenv("FEASIBILITY3D_DB", str(tmp_path / "auth.db"))
+    monkeypatch.setattr(db, "EVIDENCE_DIR", tmp_path / "evidence")
+    monkeypatch.setenv("COOKIE_SECRET", "test-cookie-secret")
+    monkeypatch.setenv("COOKIE_SECURE", "false")
+    monkeypatch.setenv("ADMIN_EMAIL", ADMIN_EMAIL)
+    monkeypatch.setenv("ADMIN_PASSWORD", ADMIN_PASSWORD)
+    with TestClient(app) as c:
+        assert c.get("/health").status_code == 200          # exempt
+        assert c.get("/spills").status_code == 401          # protected
+        assert c.get("/me").status_code == 401              # protected
+        # logging in unlocks it
+        assert c.post("/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}).status_code == 200
+        assert c.get("/spills").status_code == 200
+
+
+def test_logout_clears_session(client):
+    assert client.get("/me").status_code == 200
+    client.post("/logout")
+    # a fresh client with no cookie is 401; the logged-in client's cookie is gone
+    assert client.cookies.get("feasibility3d_session") is None
+
+
+def test_open_mode_without_secret(open_client):
+    """No COOKIE_SECRET → data routes are open (dev/demo mode)."""
+    assert open_client.get("/health").json()["auth_enabled"] is False
+    assert open_client.get("/spills").status_code == 200
+    assert open_client.post("/analyze").status_code == 200

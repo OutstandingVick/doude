@@ -36,7 +36,7 @@ def test_init_db_creates_tables(conn):
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         )
     }
-    assert names == {"pipelines", "spills", "evidence", "audit_log", "contacts"}
+    assert names == {"pipelines", "spills", "evidence", "audit_log", "contacts", "users"}
 
 
 def test_save_analysis_idempotent(conn, response):

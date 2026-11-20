@@ -17,8 +17,10 @@ from typing import Dict, Iterator, List, Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = ROOT / "data" / "feasibility3d.db"
-EVIDENCE_DIR = ROOT / "data" / "evidence"
-REPORTS_DIR = ROOT / "data" / "reports"
+# Evidence and generated reports live on a persistent volume in deployment;
+# the env overrides let docker-compose point them at the mounted volume.
+EVIDENCE_DIR = Path(os.environ.get("FEASIBILITY3D_EVIDENCE") or str(ROOT / "data" / "evidence"))
+REPORTS_DIR = Path(os.environ.get("FEASIBILITY3D_REPORTS") or str(ROOT / "data" / "reports"))
 
 MAX_EVIDENCE_BYTES = 10 * 1024 * 1024
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "application/pdf", "text/csv"}
@@ -151,6 +153,14 @@ def init_db(conn: sqlite3.Connection) -> None:
             name TEXT NOT NULL,
             email TEXT,
             phone TEXT,
+            created_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'regulator',
             created_at TEXT
         );
         """
@@ -532,6 +542,49 @@ def remove_contact(conn, contact_id, actor):
             raise ValueError("unknown contact id")
         conn.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))
         log(conn, None, "contact_removed", actor, {"id": contact_id, "name": row["name"]})
+
+def user_count(conn) -> int:
+    return conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
+
+
+def get_user_by_email(conn, email: str) -> Optional[Dict]:
+    row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_user_by_id(conn, user_id: int) -> Optional[Dict]:
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def create_user(conn, email: str, password: str, role: str = "regulator",
+                actor: Optional[str] = None) -> Dict:
+    """Create a user and log it to the audit chain."""
+    from engine import auth  # local import to avoid a module-level cycle
+    actor = actor or "system"
+    email = email.strip().lower()
+    if not email:
+        raise ValueError("email is required")
+    if get_user_by_email(conn, email):
+        raise ValueError("a user with that email already exists")
+    with write_transaction(conn):
+        cur = conn.execute(
+            "INSERT INTO users (email, password_hash, role, created_at) VALUES (?, ?, ?, ?)",
+            (email, auth.hash_password(password), role, _now()),
+        )
+        log(conn, None, "user_created", actor, {"email": email, "role": role})
+    return get_user_by_id(conn, cur.lastrowid)
+
+
+def bootstrap_admin(conn, email: str, password: str) -> Optional[Dict]:
+    """Create the first admin account if no users exist yet.
+
+    Idempotent: returns the existing first user when accounts are already
+    present, so a restart never overwrites or duplicates the admin.
+    """
+    if user_count(conn) > 0:
+        return None
+    return create_user(conn, email, password, role="admin", actor="system")
 
 def record_report(conn: sqlite3.Connection, report_type: str, params: Dict,
                   pdf_bytes: bytes, actor: Optional[str] = None) -> Dict:

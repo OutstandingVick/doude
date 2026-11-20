@@ -12,16 +12,20 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Iterator, Optional
 
-from fastapi import Depends, FastAPI, File, Form, Header, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
-from engine import db, forms, locate, pdf_report, report, reports, written
+from engine import auth, db, forms, locate, pdf_report, report, reports, written
 
 ROOT = Path(__file__).resolve().parent.parent
 METHOD_VERSION = "feasibility3d-method v0.1"
-READINGS = ROOT / "data" / "readings.csv"
+# Input data (readings) lives in the image; DB + evidence live on a volume.
+READINGS = Path(os.environ.get("FEASIBILITY3D_READINGS") or str(ROOT / "data" / "readings.csv"))
+SESSION_COOKIE = "feasibility3d_session"
+# Routes that do not require an authenticated session.
+AUTH_EXEMPT = {"/health", "/login"}
 
 
 @asynccontextmanager
@@ -31,18 +35,63 @@ async def lifespan(_app):
         db.init_db(conn)
         written.init_tables(conn)
         db.upsert_pipeline_from_scenario(conn, locate.load_scenario())
+        # Create the first admin account from env when the DB is empty.
+        admin_email = os.environ.get("ADMIN_EMAIL", "").strip()
+        admin_password = os.environ.get("ADMIN_PASSWORD", "")
+        if admin_email and admin_password:
+            created = db.bootstrap_admin(conn, admin_email, admin_password)
+            if created:
+                print("Bootstrapped first admin account: %s" % admin_email)
     finally:
         conn.close()
     yield
 
 
 app = FastAPI(title="Feasibility3D engine", version="0.1.0", lifespan=lifespan)
+
+# CORS: allow the app origin(s) from CORS_ORIGINS (comma-separated) plus local
+# dev origins. allow_credentials=True is required so the session cookie is sent.
+_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+_cors_origins += ["http://localhost:3000", "http://127.0.0.1:3000"]
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=_cors_origins,
+    # Dev convenience: allow any localhost port (the app may run on a non-3000 port).
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
+
+
+@app.middleware("http")
+async def require_auth(request: Request, call_next):
+    """Reject any request without a valid session, except exempt routes.
+
+    Auth is only enforced when COOKIE_SECRET is configured. Without it the
+    engine runs "open" (local dev / demo), so the existing workflow keeps
+    working. CORS preflights (OPTIONS) are handled by the CORSMiddleware.
+    """
+    if request.method == "OPTIONS" or request.url.path in AUTH_EXEMPT:
+        return await call_next(request)
+    if not os.environ.get("COOKIE_SECRET"):
+        return await call_next(request)  # open mode
+    token = request.cookies.get(SESSION_COOKIE)
+    payload = auth.verify_token(token) if token else None
+    if not payload:
+        return JSONResponse(status_code=401, content={
+            "error": "unauthenticated", "message": "log in first"})
+    # Confirm the user still exists (a deleted account invalidates the token).
+    conn = db.connect(check_same_thread=False)
+    try:
+        user = db.get_user_by_id(conn, int(payload.get("uid", 0)))
+    finally:
+        conn.close()
+    if not user:
+        return JSONResponse(status_code=401, content={
+            "error": "unauthenticated", "message": "unknown user"})
+    request.state.user = user
+    return await call_next(request)
 
 
 def get_conn() -> Iterator:
@@ -73,6 +122,11 @@ class ContactIn(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
+
+
+class LoginIn(BaseModel):
+    email: str
+    password: str
 
 
 def load(rel: str) -> dict:
@@ -111,7 +165,58 @@ def _spill_not_found():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "method_version": METHOD_VERSION}
+    return {
+        "status": "ok",
+        "method_version": METHOD_VERSION,
+        "auth_enabled": bool(os.environ.get("COOKIE_SECRET")),
+    }
+
+
+def _cookie_kwargs() -> dict:
+    """Cookie attributes. SameSite=None + Secure is required for the
+    cross-origin app→engine fetches used in production; on localhost the
+    browser treats it as a secure context so it still works over http."""
+    return {
+        "httponly": True,
+        "secure": os.environ.get("COOKIE_SECURE", "true").lower() in ("1", "true", "yes"),
+        "samesite": os.environ.get("COOKIE_SAMESITE", "none").lower(),
+        "path": "/",
+        "max_age": auth.SESSION_TTL_SECONDS,
+    }
+
+
+@app.post("/login")
+def login(body: LoginIn):
+    if not os.environ.get("COOKIE_SECRET"):
+        return JSONResponse(status_code=503, content={
+            "error": "misconfigured", "message": "COOKIE_SECRET is not set"})
+    conn = db.connect()
+    try:
+        user = db.get_user_by_email(conn, body.email.strip().lower())
+    finally:
+        conn.close()
+    if not user or not auth.verify_password(body.password, user["password_hash"]):
+        return JSONResponse(status_code=401, content={
+            "error": "invalid_credentials", "message": "wrong email or password"})
+    token = auth.create_token(user["id"], user["email"], user["role"])
+    response = JSONResponse({"user": {"id": user["id"], "email": user["email"], "role": user["role"]}})
+    response.set_cookie(SESSION_COOKIE, token, **_cookie_kwargs())
+    return response
+
+
+@app.post("/logout")
+def logout():
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
+@app.get("/me")
+def me(request: Request):
+    user = getattr(request.state, "user", None)
+    if not user:
+        return JSONResponse(status_code=401, content={"error": "unauthenticated"})
+    return {"user": {"id": user["id"], "email": user["email"], "role": user["role"]}}
 
 
 @app.get("/scenario")
