@@ -10,6 +10,7 @@ import {
 } from "react";
 import { getHealth, getMe, login as apiLogin, logout as apiLogout } from "@/lib/api";
 import type { SessionUser } from "@/lib/types";
+import { clearOfflineData } from "@/components/Pwa";
 
 interface SessionValue {
   /** Whether the engine enforces authentication (COOKIE_SECRET set). */
@@ -70,6 +71,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+    clearOfflineData();
     setUser(null);
   }, []);
 

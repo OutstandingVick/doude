@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/format";
 import { useOutsideClose } from "@/lib/useOutsideClose";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { AvatarMenu } from "@/components/AvatarMenu";
+import { InstallButton } from "@/components/Pwa";
 
 const STATUS_FILTERS = [
   { id: "", label: "All statuses" },
@@ -119,6 +120,7 @@ export function TopNav() {
         </div>
 
         <div className="flex items-center gap-2">
+          <InstallButton />
           <Link data-topbar-action href="/settings" aria-label="Settings" className="icon-btn">
             <Settings className="h-[18px] w-[18px]" />
           </Link>

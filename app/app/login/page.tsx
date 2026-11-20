@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { useSession } from "@/components/SessionProvider";
+import { InstallButton } from "@/components/Pwa";
 
 export default function LoginPage() {
   const { login, authEnabled } = useSession();
@@ -83,6 +84,9 @@ export default function LoginPage() {
             Sign in
           </button>
         </form>
+        <div className="mt-4 flex justify-center">
+          <InstallButton />
+        </div>
       </div>
     </div>
   );
