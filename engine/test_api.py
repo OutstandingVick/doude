@@ -31,6 +31,7 @@ def open_client(tmp_path, monkeypatch):
     monkeypatch.setenv("FEASIBILITY3D_DB", str(tmp_path / "open.db"))
     monkeypatch.setattr(db, "EVIDENCE_DIR", tmp_path / "evidence")
     monkeypatch.delenv("COOKIE_SECRET", raising=False)
+    monkeypatch.setenv("APP_ENV", "development")
     monkeypatch.delenv("ADMIN_EMAIL", raising=False)
     monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
     with TestClient(app) as test_client:

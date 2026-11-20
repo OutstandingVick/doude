@@ -28,8 +28,39 @@ SESSION_COOKIE = "feasibility3d_session"
 AUTH_EXEMPT = {"/health", "/login"}
 
 
+def app_env() -> str:
+    return os.environ.get("APP_ENV", "").strip().lower()
+
+
+def open_mode_allowed() -> bool:
+    """Open mode (no auth) is only allowed in development."""
+    return app_env() == "development"
+
+
+def check_config() -> None:
+    """Refuse to start with an unsafe configuration.
+
+    - APP_ENV=production requires COOKIE_SECRET and ADMIN_PASSWORD.
+    - Without COOKIE_SECRET the engine would run open (no auth); that is only
+      allowed when APP_ENV=development.
+    """
+    env = app_env()
+    if env == "production":
+        missing = [k for k in ("COOKIE_SECRET", "ADMIN_PASSWORD") if not os.environ.get(k)]
+        if missing:
+            raise RuntimeError(
+                "Refusing to start: APP_ENV=production but %s %s not set. "
+                "Set them (see .env.example / DEPLOY.md)."
+                % (" and ".join(missing), "is" if len(missing) == 1 else "are"))
+    if not os.environ.get("COOKIE_SECRET") and env != "development":
+        raise RuntimeError(
+            "Refusing to start: COOKIE_SECRET is not set. Open mode (no login) "
+            "is only allowed with APP_ENV=development.")
+
+
 @asynccontextmanager
 async def lifespan(_app):
+    check_config()
     conn = db.connect()
     try:
         db.init_db(conn)
@@ -75,7 +106,10 @@ async def require_auth(request: Request, call_next):
     if request.method == "OPTIONS" or request.url.path in AUTH_EXEMPT:
         return await call_next(request)
     if not os.environ.get("COOKIE_SECRET"):
-        return await call_next(request)  # open mode
+        if open_mode_allowed():
+            return await call_next(request)  # open mode (development only)
+        return JSONResponse(status_code=503, content={
+            "error": "misconfigured", "message": "COOKIE_SECRET is not set"})
     token = request.cookies.get(SESSION_COOKIE)
     payload = auth.verify_token(token) if token else None
     if not payload:
@@ -173,13 +207,13 @@ def health():
 
 
 def _cookie_kwargs() -> dict:
-    """Cookie attributes. SameSite=None + Secure is required for the
-    cross-origin app→engine fetches used in production; on localhost the
-    browser treats it as a secure context so it still works over http."""
+    """Cookie attributes. The app proxies /api/* to the engine (same origin),
+    so the session cookie is first-party: SameSite=Lax + Secure. Set
+    COOKIE_SECURE=false only for plain-http local development."""
     return {
         "httponly": True,
         "secure": os.environ.get("COOKIE_SECURE", "true").lower() in ("1", "true", "yes"),
-        "samesite": os.environ.get("COOKIE_SAMESITE", "none").lower(),
+        "samesite": os.environ.get("COOKIE_SAMESITE", "lax").lower(),
         "path": "/",
         "max_age": auth.SESSION_TTL_SECONDS,
     }
