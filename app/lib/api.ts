@@ -1,5 +1,6 @@
 import { API_URL } from "./types";
 import { getActor } from "./settings";
+import { enqueueUpload } from "./offlineQueue";
 import type {
   AnalyzeResponse,
   AuditEntry,
@@ -124,20 +125,38 @@ export function auditVerify(): Promise<AuditVerification> {
   return request<AuditVerification>("/audit/verify");
 }
 
+/**
+ * Upload evidence. When offline the upload is queued (IndexedDB) and sent on
+ * reconnect; in that case this resolves to `null`.
+ */
 export async function uploadEvidence(
   id: string,
   file: File,
   note?: string,
-): Promise<EvidenceRecord> {
+): Promise<EvidenceRecord | null> {
+  const queue = async () => {
+    await enqueueUpload({ spillId: id, file, filename: file.name, note, actor: getActor() });
+    return null;
+  };
+  if (typeof navigator !== "undefined" && !navigator.onLine) return queue();
   const form = new FormData();
   form.append("file", file);
   if (note) form.append("note", note);
-    const response = await fetch(`${API_URL}/spills/${encodeURIComponent(id)}/evidence`, {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/spills/${encodeURIComponent(id)}/evidence`, {
       method: "POST",
       body: form,
       credentials: "include",
       headers: { "X-Feasibility3D-Actor": getActor() },
     });
+  } catch {
+    return queue(); // network error: treat as offline
+  }
+  if (response.status === 503) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (body?.error === "offline") return queue();
+  }
   if (!response.ok) {
     throw new Error(`Upload failed (${response.status})`);
   }

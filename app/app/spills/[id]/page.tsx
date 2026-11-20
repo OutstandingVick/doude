@@ -11,6 +11,7 @@ import { StatusPill, type PulseTone } from "@/components/StatusPill";
 import { CopyField } from "@/components/CopyField";
 import { Skeleton } from "@/components/Skeleton";
 import { OfflineCard } from "@/components/OfflineCard";
+import { SYNCED_EVENT } from "@/lib/offlineQueue";
 import { auditVerify, evidenceUrl, formAPdfUrl, getSpill, reportPdfUrl, setSpillStatus, uploadEvidence, verify } from "@/lib/api";
 import {
   formatBbl,
@@ -599,6 +600,19 @@ function EvidenceUploadTab({ spillId, evidence }: { spillId: string; evidence: E
   const [dragOver, setDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [queuedNote, setQueuedNote] = useState<string | null>(null);
+
+  // Queued offline uploads for this spill appear once they are sent.
+  useEffect(() => {
+    const onSynced = (e: Event) => {
+      const record = (e as CustomEvent<EvidenceRecord>).detail;
+      if (record.spill_id !== spillId) return;
+      setItems((prev) => (prev.some((r) => r.id === record.id) ? prev : [record, ...prev]));
+      setQueuedNote(null);
+    };
+    window.addEventListener(SYNCED_EVENT, onSynced);
+    return () => window.removeEventListener(SYNCED_EVENT, onSynced);
+  }, [spillId]);
 
   async function handleFile(file: File) {
     setUploadError(null);
@@ -614,7 +628,8 @@ function EvidenceUploadTab({ spillId, evidence }: { spillId: string; evidence: E
     setUploading(true);
     try {
       const record = await uploadEvidence(spillId, file);
-      setItems((prev) => [record, ...prev]);
+      if (record) setItems((prev) => [record, ...prev]);
+      else setQueuedNote(`${file.name} saved offline. It will upload automatically when you're back online.`);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -668,6 +683,11 @@ function EvidenceUploadTab({ spillId, evidence }: { spillId: string; evidence: E
           />
         </label>
         {uploadError && <p className="mt-3 text-xs text-danger">{uploadError}</p>}
+        {queuedNote && (
+          <p role="status" className="mt-3 text-xs text-muted">
+            {queuedNote}
+          </p>
+        )}
       </div>
 
       {items.length === 0 ? (

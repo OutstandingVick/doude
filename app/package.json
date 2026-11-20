@@ -10,7 +10,8 @@
     "check:layout": "node scripts/check-layout.mjs",
     "check:controls": "node scripts/check-controls.mjs",
     "check:rounding": "tsx scripts/check-rounding.ts",
-    "check:login": "node scripts/check-login.mjs"
+    "check:login": "node scripts/check-login.mjs",
+    "check:pwa": "node scripts/check-pwa.mjs"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
