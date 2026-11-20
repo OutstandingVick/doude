@@ -1,0 +1,52 @@
+# Feasibility3D — engine + app together, with a persistent data volume.
+#
+#   cp .env.example .env   # then fill in COOKIE_SECRET + ADMIN_PASSWORD
+#   docker compose up -d --build
+#
+# The database and evidence live on the `data` volume, so they survive
+# `docker compose up --build` / container replacement.
+
+services:
+  engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.engine
+    container_name: feasibility3d-engine
+    environment:
+      # Data paths (on the volume).
+      FEASIBILITY3D_DB: /data/feasibility3d.db
+      FEASIBILITY3D_EVIDENCE: /data/evidence
+      FEASIBILITY3D_REPORTS: /data/reports
+      # Auth. COOKIE_SECRET and ADMIN_PASSWORD are required (fail fast if unset).
+      COOKIE_SECRET: ${COOKIE_SECRET:?Set COOKIE_SECRET in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      # Cookie flags. For local (http://localhost) use lax + no-secure.
+      # For production (https, cross-site) use none + secure (see DEPLOY.md).
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      # Origins the browser app is served from (comma-separated).
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "${ENGINE_PORT:-8000}:8000"
+    volumes:
+      - data:/data
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./app
+      args:
+        # The engine URL the BROWSER reaches (baked in at build time).
+        NEXT_PUBLIC_FEASIBILITY3D_API: ${NEXT_PUBLIC_FEASIBILITY3D_API:-http://localhost:8000}
+    container_name: feasibility3d-app
+    environment:
+      NODE_ENV: production
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      - engine
+    restart: unless-stopped
+
+volumes:
+  data:

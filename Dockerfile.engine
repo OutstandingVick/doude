@@ -1,0 +1,42 @@
+# Feasibility3D engine (FastAPI + SQLite).
+#
+# Build from the repo root:
+#   docker build -f Dockerfile.engine -t feasibility3d-engine .
+#
+# The image contains the code + the generated sensor feed (readings.csv).
+# The database and evidence are written to /data, which docker-compose mounts
+# as a named volume so they survive container rebuilds.
+
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install Python deps first for better layer caching.
+COPY engine/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Engine code + the active scenario.
+COPY engine/ ./engine/
+COPY scenario.json ./scenario.json
+
+# Generate the deterministic sensor feed (data/readings.csv) at build time.
+RUN python engine/generate.py
+
+# Runtime paths. Readings stay in the image (read-only input); the DB and
+# evidence go on the /data volume (set by docker-compose / the host env).
+ENV FEASIBILITY3D_READINGS=/app/data/readings.csv \
+    FEASIBILITY3D_DB=/data/feasibility3d.db \
+    FEASIBILITY3D_EVIDENCE=/data/evidence \
+    FEASIBILITY3D_REPORTS=/data/reports
+
+RUN mkdir -p /data
+
+# --- SINGLE WORKER (important) -------------------------------------------
+# The audit-log write lock (engine.db._WRITE_LOCK) is a process-wide
+# threading.Lock. It only serialises writers INSIDE one process. If you run
+# uvicorn with more than one worker, each worker has its own lock and two
+# workers can interleave their read-then-insert on the audit chain, corrupting
+# it. So we deliberately run exactly ONE worker. Do NOT add `--workers N`.
+# For throughput, scale by adding replicas behind a load balancer only if you
+# also move the DB to a shared store (out of scope for this handover).
+CMD ["uvicorn", "engine.main:app", "--host", "0.0.0.0", "--port", "8000"]

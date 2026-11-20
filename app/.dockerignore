@@ -1,0 +1,9 @@
+# Keep the app build context small (the Dockerfile copies the app source).
+node_modules
+.next
+.env
+.env.*
+scripts
+Dockerfile
+.dockerignore
+*.log

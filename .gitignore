@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 node_modules/
 .next/
+.env
 .env*.local
 data/*.csv
 data/*.db
