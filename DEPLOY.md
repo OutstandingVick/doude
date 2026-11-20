@@ -7,6 +7,14 @@ This guide covers deploying the **engine** (FastAPI + SQLite) and the **app**
 - **Option B** — the engine on **Render** (with a persistent disk) and the app
   on **Vercel**.
 
+> **How the browser reaches the engine.** The browser only ever talks to the
+> app's own domain. Every API call goes to `/api/*` on the app, and Next.js
+> proxies it (a rewrite in `app/next.config.ts`) to `ENGINE_URL`, a
+> **server-side** variable the browser never sees. Because the API is
+> same-origin, the session cookie is first-party (`SameSite=Lax`, `Secure`),
+> which Safari/iOS accept, and no CORS setup is needed. `ENGINE_URL` is read
+> when the app is **built**, so set it before building/deploying.
+
 > **Read this first — one worker.** The engine's audit log is a hash chain and
 > is protected by a **process-wide** write lock (`engine/db.py:_WRITE_LOCK`).
 > That lock only serialises writers *inside a single process*. If the engine
@@ -54,20 +62,19 @@ cp .env.example .env
 Edit `.env`:
 
 ```dotenv
+APP_ENV=production
 COOKIE_SECRET=<openssl rand -hex 32>
 ADMIN_EMAIL=you@yourorg.example
 ADMIN_PASSWORD=<a strong password>
-CORS_ORIGINS=https://your-domain.example
-NEXT_PUBLIC_FEASIBILITY3D_API=https://your-domain.example/api
 COOKIE_SECURE=true
-COOKIE_SAMESITE=lax
 ```
 
-- `CORS_ORIGINS` is the origin the **app** is served from.
-- `NEXT_PUBLIC_FEASIBILITY3D_API` is the engine URL the **browser** calls. With
-  the reverse proxy below, both live on `your-domain.example`, so the app is at
-  `https://your-domain.example` and the engine at
-  `https://your-domain.example/api`.
+- `APP_ENV=production` makes the engine **refuse to start** if
+  `COOKIE_SECRET` or `ADMIN_PASSWORD` is missing. Open mode (no login) is only
+  allowed with `APP_ENV=development`.
+- `ENGINE_URL` is set by the compose file to `http://engine:8000` (the
+  internal hostname). The engine has no public port; the browser reaches it
+  only via the app's `/api` proxy.
 
 ### 3. (Recommended) HTTPS with a reverse proxy
 
@@ -95,27 +102,21 @@ volumes:
   caddy_data:
 ```
 
-And a `Caddyfile` at the repo root:
+And a `Caddyfile` at the repo root (the app itself proxies `/api/*` to the
+engine, so Caddy only needs to front the app):
 
 ```
 your-domain.example {
-    handle /api/* {
-        uri strip_prefix /api
-        reverse_proxy engine:8000
-    }
-    handle {
-        reverse_proxy app:3000
-    }
+    reverse_proxy app:3000
 }
 ```
 
-Then remove the direct `ports` from the `app` and `engine` services (they are
-only reached through the proxy). Because the app and engine now share one
-domain, `COOKIE_SAMESITE=lax` + `COOKIE_SECURE=true` is correct.
+Then remove the direct `ports` from the `app` service (it is only reached
+through Caddy).
 
-> If you skip the proxy and expose ports directly (`http://your-domain:3000` /
-> `:8000`), you must use `COOKIE_SAMESITE=none` + `COOKIE_SECURE=true` and serve
-> over HTTPS, or the cross-port cookie will be blocked.
+> HTTPS is required: the cookie is `Secure`, and service workers (installable
+> PWA) only run on HTTPS. For a quick plain-http trial on `localhost` set
+> `COOKIE_SECURE=false`.
 
 ### 4. Start
 
@@ -149,16 +150,14 @@ with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
    | `FEASIBILITY3D_EVIDENCE` | `/data/evidence` |
    | `FEASIBILITY3D_REPORTS` | `/data/reports` |
    | `FEASIBILITY3D_READINGS` | `/opt/render/src/data/readings.csv` (or generate at build) |
+   | `APP_ENV` | `production` |
    | `COOKIE_SECRET` | `<openssl rand -hex 32>` |
    | `ADMIN_EMAIL` | `you@yourorg.example` |
    | `ADMIN_PASSWORD` | `<strong password>` |
-   | `CORS_ORIGINS` | `https://your-app.vercel.app` |
    | `COOKIE_SECURE` | `true` |
-   | `COOKIE_SAMESITE` | `none` |
 
-   The app (Vercel) and engine (Render) are on **different domains**, so the
-   session cookie is cross-site: `COOKIE_SAMESITE=none` **and**
-   `COOKIE_SECURE=true` are both required.
+   The browser never calls Render directly: Vercel proxies `/api/*` to it, so
+   the cookie is set on the Vercel domain (first-party, `SameSite=Lax`).
 
    > Render's free tier spins down; use a paid instance (or a "spinning"
    > setting) so the engine stays up. The persistent disk keeps the DB and
@@ -169,12 +168,12 @@ with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
 1. Vercel → **New Project** → import the repo.
 2. **Root Directory:** `app`
 3. Framework preset: **Next.js**.
-4. Set the environment variable:
-   - `NEXT_PUBLIC_FEASIBILITY3D_API` = `https://<your-engine>.onrender.com`
+4. Set the environment variable (server-side; not exposed to the browser):
+   - `ENGINE_URL` = `https://<your-engine>.onrender.com`
 5. Deploy.
 
-Because `NEXT_PUBLIC_*` is baked in at build time, change it via
-**Project → Settings → Environment Variables** and **redeploy**.
+The `/api` rewrite is resolved at build time, so after changing `ENGINE_URL`
+in **Project → Settings → Environment Variables**, **redeploy**.
 
 ---
 
@@ -195,19 +194,19 @@ the admin.
   ```
   (For Render, run the same in a shell on the instance.)
 
-## HTTPS, CORS and cookies
+## HTTPS and cookies
 
-- **HTTPS** is mandatory in production: the session cookie is `Secure`, so
-  browsers reject it over plain HTTP. Option A uses Caddy's automatic TLS;
-  Render and Vercel provide TLS for free.
-- **CORS:** the engine allows the origins in `CORS_ORIGINS` (plus local
-  dev origins). The app's origin **must** be listed, or the browser blocks the
-  API calls.
-- **Cookie:** the session cookie is `feasibility3d_session`,
-  `HttpOnly`, `Path=/`, with `SameSite`/`Secure` set by `COOKIE_SAMESITE` /
-  `COOKIE_SECURE`.
-  - Same domain (Option A with proxy): `lax` + `secure`.
-  - Cross domain (Option B, or split ports): `none` + `secure`.
+- **HTTPS** is mandatory in production: the session cookie is `Secure` and the
+  service worker (offline/installable app) needs a secure origin. Option A uses
+  Caddy's automatic TLS; Render and Vercel provide TLS for free.
+- **Same origin, no CORS:** the browser calls `/api/*` on the app's domain and
+  Next proxies to `ENGINE_URL`. The engine's `CORS_ORIGINS` setting is no longer
+  needed for the app.
+- **Cookie:** `feasibility3d_session`, `HttpOnly`, `Path=/`, `SameSite=Lax`,
+  `Secure` (set `COOKIE_SECURE=false` only for plain-http local testing).
+- **Production safety:** with `APP_ENV=production` the engine exits at startup
+  with `Refusing to start: … COOKIE_SECRET … not set` (or `ADMIN_PASSWORD`).
+  Without `COOKIE_SECRET` it also refuses unless `APP_ENV=development`.
 
 ## Backups
 
@@ -286,6 +285,6 @@ Run these against the live deployment (substitute your URL). All should pass.
    # → 200 application/pdf
    ```
 
-If step 2 fails with a CORS or cookie error, check that `CORS_ORIGINS` includes
-the app's origin and that `COOKIE_SAMESITE`/`COOKIE_SECURE` match your
-same-site vs cross-site setup (see "HTTPS, CORS and cookies").
+If step 2 fails, check `ENGINE_URL` was set when the app was built (a 404 or
+502 on `/api/health` means the proxy can't reach the engine) and that the site
+is served over HTTPS (the cookie is `Secure`). See "HTTPS and cookies".

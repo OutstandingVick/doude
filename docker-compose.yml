@@ -17,18 +17,20 @@ services:
       FEASIBILITY3D_DB: /data/feasibility3d.db
       FEASIBILITY3D_EVIDENCE: /data/evidence
       FEASIBILITY3D_REPORTS: /data/reports
+      # production = refuse to start without COOKIE_SECRET + ADMIN_PASSWORD.
+      APP_ENV: ${APP_ENV:-production}
       # Auth. COOKIE_SECRET and ADMIN_PASSWORD are required (fail fast if unset).
       COOKIE_SECRET: ${COOKIE_SECRET:?Set COOKIE_SECRET in .env}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
-      # Cookie flags. For local (http://localhost) use lax + no-secure.
-      # For production (https, cross-site) use none + secure (see DEPLOY.md).
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
-      # Origins the browser app is served from (comma-separated).
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-    ports:
-      - "${ENGINE_PORT:-8000}:8000"
+      # The browser reaches the engine only through the app's /api proxy, so
+      # the session cookie is first-party: SameSite=Lax + Secure.
+      # Set COOKIE_SECURE=false only for plain-http local testing.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAMESITE: lax
+    # No public port: only the app talks to the engine (internal network).
+    expose:
+      - "8000"
     volumes:
       - data:/data
     restart: unless-stopped
@@ -37,11 +39,12 @@ services:
     build:
       context: ./app
       args:
-        # The engine URL the BROWSER reaches (baked in at build time).
-        NEXT_PUBLIC_FEASIBILITY3D_API: ${NEXT_PUBLIC_FEASIBILITY3D_API:-http://localhost:8000}
+        # Server-side engine URL for the /api/* proxy (internal hostname).
+        ENGINE_URL: http://engine:8000
     container_name: feasibility3d-app
     environment:
       NODE_ENV: production
+      ENGINE_URL: http://engine:8000
     ports:
       - "${APP_PORT:-3000}:3000"
     depends_on:

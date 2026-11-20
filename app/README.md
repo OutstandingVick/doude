@@ -9,7 +9,7 @@ npm i leaflet react-leaflet recharts && npm i -D @types/leaflet
 
 Create `.env.local`:
 ```
-NEXT_PUBLIC_FEASIBILITY3D_API=http://localhost:8000
+ENGINE_URL=http://localhost:8000   # server-side; the browser calls /api on the app origin
 ```
 
 Build against the engine stub (`uvicorn engine.main:app --reload`), which already serves the sample contract. Types are in `lib/types.ts`.

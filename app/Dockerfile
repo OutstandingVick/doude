@@ -3,10 +3,9 @@
 # Build from the app/ directory (the compose file sets the context to ./app):
 #   docker build -t feasibility3d-app .
 #
-# NEXT_PUBLIC_FEASIBILITY3D_API is inlined at build time, so pass it as a build
-# arg. It must be the engine URL that the BROWSER can reach (not the internal
-# container hostname) — e.g. http://localhost:8000 for local compose, or
-# https://your-domain/api behind a reverse proxy in production.
+# The browser calls /api/* on the app's origin; Next proxies to ENGINE_URL
+# (server-side). Rewrites are resolved at build time, so pass ENGINE_URL as a
+# build arg — e.g. http://engine:8000 inside docker compose.
 
 # syntax=docker/dockerfile:1
 
@@ -19,8 +18,8 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG NEXT_PUBLIC_FEASIBILITY3D_API=http://localhost:8000
-ENV NEXT_PUBLIC_FEASIBILITY3D_API=$NEXT_PUBLIC_FEASIBILITY3D_API
+ARG ENGINE_URL=http://engine:8000
+ENV ENGINE_URL=$ENGINE_URL
 RUN npm run build
 
 FROM node:20-alpine AS run

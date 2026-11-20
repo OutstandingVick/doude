@@ -268,7 +268,8 @@ export interface ScenarioResponse {
   };
 }
 
-export const API_URL = process.env.NEXT_PUBLIC_FEASIBILITY3D_API ?? "http://localhost:8000";
+/** All engine calls go through the same-origin /api proxy (see next.config.ts). */
+export const API_URL = "/api";
 
 export type ReportScope = "spill" | "pipeline" | "period";
 export type ReportTypeId = "spill" | "form-a" | "compliance" | "audit" | "period";
