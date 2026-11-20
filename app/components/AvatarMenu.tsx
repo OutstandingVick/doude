@@ -2,13 +2,12 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, CircleHelp, Settings } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, ChevronDown, CircleHelp, LogOut, Settings } from "lucide-react";
 import { setSettings, useSettings } from "@/lib/settings";
+import { useSession } from "@/components/SessionProvider";
 import type { Actor } from "@/lib/types";
 import { useOutsideClose } from "@/lib/useOutsideClose";
-
-const USER_NAME = "Victor Ogbonna";
-const USER_HANDLE = "Regulator view";
 
 const ACTORS: { id: Actor; label: string; note: string }[] = [
   { id: "regulator", label: "Regulator", note: "Full access" },
@@ -18,8 +17,19 @@ const ACTORS: { id: Actor; label: string; note: string }[] = [
 
 export function AvatarMenu() {
   const settings = useSettings();
+  const { user, authEnabled, logout } = useSession();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useOutsideClose<HTMLDivElement>(useCallback(() => setOpen(false), []));
+
+  const displayName = user?.email ?? "Open access";
+  const handle = authEnabled ? "Signed in" : "Authentication off";
+
+  async function signOut() {
+    setOpen(false);
+    await logout();
+    router.replace("/login");
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -31,15 +41,15 @@ export function AvatarMenu() {
         onClick={() => setOpen((o) => !o)}
         className="flex h-10 w-10 items-center justify-center gap-1 rounded-full bg-green text-sm font-semibold text-white"
       >
-        VO
+        {displayName.slice(0, 2).toUpperCase()}
         <ChevronDown className="h-3.5 w-3.5 opacity-80" />
       </button>
 
       {open && (
         <div className="absolute right-0 top-12 z-50 w-[260px] overflow-hidden rounded-[14px] border border-border bg-surface shadow-lg">
           <div className="border-b border-border px-4 py-3">
-            <div className="text-sm font-medium text-text">{USER_NAME}</div>
-            <div className="text-xs text-muted">{USER_HANDLE}</div>
+            <div className="truncate text-sm font-medium text-text">{displayName}</div>
+            <div className="text-xs text-muted">{handle}</div>
           </div>
 
           <div className="px-2 py-2">
@@ -81,6 +91,16 @@ export function AvatarMenu() {
               <CircleHelp className="h-4 w-4" />
               Help
             </Link>
+            {authEnabled && (
+              <button
+                type="button"
+                onClick={signOut}
+                className="flex w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left text-sm text-text hover:bg-surface2"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
+            )}
           </div>
         </div>
       )}

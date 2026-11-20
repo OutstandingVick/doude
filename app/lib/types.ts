@@ -184,6 +184,13 @@ export interface SpillDetail extends SpillHeader {
 export interface HealthResponse {
   status: string;
   method_version: string;
+  auth_enabled: boolean;
+}
+
+export interface SessionUser {
+  id: number;
+  email: string;
+  role: string;
 }
 
 export interface VerifyResponse {

@@ -25,12 +25,14 @@ import type {
   SpillDetail,
   SpillStatus,
   SpillSummary,
+  SessionUser,
   VerifyResponse,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       "X-Feasibility3D-Actor": getActor(),
@@ -49,6 +51,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>("/health");
+}
+
+export function getMe(): Promise<{ user: SessionUser }> {
+  return request<{ user: SessionUser }>("/me");
+}
+
+export async function login(email: string, password: string): Promise<SessionUser> {
+  const response = await fetch(`${API_URL}/login`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error((body && (body as { message?: string }).message) || `Login failed (${response.status})`);
+  }
+  const data = (await response.json()) as { user: SessionUser };
+  return data.user;
+}
+
+export function logout(): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>("/logout", { method: "POST" });
 }
 
 export function getScenario(): Promise<ScenarioResponse> {
@@ -110,6 +135,7 @@ export async function uploadEvidence(
     const response = await fetch(`${API_URL}/spills/${encodeURIComponent(id)}/evidence`, {
       method: "POST",
       body: form,
+      credentials: "include",
       headers: { "X-Feasibility3D-Actor": getActor() },
     });
   if (!response.ok) {
@@ -195,6 +221,7 @@ export async function generateReport(
   params: ReportParams,
 ): Promise<{ blob: Blob; sha256: string; filename: string }> {
   const response = await fetch(`${API_URL}/reports/${type}.pdf${reportQuery(params)}`, {
+    credentials: "include",
     headers: { "X-Feasibility3D-Actor": getActor() },
   });
   if (!response.ok) {
@@ -228,6 +255,7 @@ export class ApiError extends Error {
 async function send<T>(path: string, method: string, body?: unknown): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     method,
+    credentials: "include",
     headers: { "Content-Type": "application/json", "X-Feasibility3D-Actor": getActor() },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
